@@ -1,155 +1,120 @@
 define
-address sub attribute,
-    abstract,
-    value string,
-    plays datacollection:queryattribute;
 
-    address-email sub address,
-        value string;
+# ----------------- ATTRIBUTES -----------------
 
-    address-url sub address,
-        value string;
+attribute address @abstract,
+    value string;
 
-professionalrole sub attribute,
+attribute address-email sub address;
+
+attribute address-url sub address;
+
+attribute professionalrole,
     value string;
     
-date-event sub provenant-datetime,
-    abstract,
-    value datetime,
-    plays datacollection:queryattribute;
-date-event-end sub date-event,
-    value datetime;
-date-event-registration sub date-event,
-    value datetime;
-date-event-start sub date-event,
+attribute date-event @abstract,
     value datetime;
 
-datetime-end-recorded sub attribute,
+attribute date-event-end sub date-event;
+
+attribute date-event-registration sub date-event;
+
+attribute date-event-start sub date-event;
+
+attribute datetime-end-recorded,
     value datetime;
-datetime-end-updated sub attribute,
+
+attribute datetime-end-updated,
     value datetime;
 
-description sub attribute,
-    value string,
-    plays datacollection:queryattribute;
+attribute description,
+    value string;
 
-function sub attribute,
-    value string,     
-    plays datacollection:queryattribute;
+attribute function,
+    value string;     
 
-geocode sub attribute,
-    abstract,
-    value string,
-    plays datacollection:queryattribute;
+attribute geocode @abstract,
+    value string;
 
-    geocode-country sub geocode,
-        value string;
-    geocode-nationality sub geocode,
-        value string;
-person-key sub attribute,
-    value string,
-    regex ".+";
-authorship-id sub attribute, value string;
+attribute geocode-country sub geocode;
 
+attribute geocode-nationality sub geocode;
 
-legalform sub attribute,
-    abstract,
-    value string,
-    plays datacollection:queryattribute;
+attribute person-key,
+    value string
+    @regex(".+");
+
+attribute authorship-id, 
+    value string;
+
+attribute legalform @abstract,
+    value string;
     
-    legalform-bel sub legalform,
-        value string;
-    legalform-deu sub legalform,
-        value string;
-    legalform-fra sub legalform,
-        value string;
-    legalform-irl sub legalform,
-        value string;
-    legalform-nld sub legalform,
-        value string,
-        regex "^(eenmanszaak|vennootschap-onder-firma|besloten-vennootschap|maatschap|naamloze-vennootschap|commanditaire vennootschap|
-                                 vereniging-met-volledige-rechtsbevoegdheid|vereniging-met-beperkte-rechtsbevoegdheid|cooperatie|stichting)$";
+attribute legalform-bel sub legalform;
 
-namelike sub attribute,
-    abstract,
-    value string,
-    plays datacollection:queryattribute;
+attribute legalform-deu sub legalform;
+
+attribute legalform-fra sub legalform;
+
+attribute legalform-irl sub legalform;
+
+attribute legalform-nld sub legalform,
+    value string
+    @regex("^(eenmanszaak|vennootschap-onder-firma|besloten-vennootschap|maatschap|naamloze-vennootschap|commanditaire vennootschap|vereniging-met-volledige-rechtsbevoegdheid|vereniging-met-beperkte-rechtsbevoegdheid|cooperatie|stichting)$");
+
+attribute namelike @abstract,
+    value string;
     
-    namelike-alias sub namelike,
-        value string;
-    namelike-department sub namelike,
-        value string;
-    namelike-first sub namelike,
-        value string;
-    namelike-id sub namelike,
-        abstract,
-        value string;            
-    namelike-last sub namelike,
-        value string;
-    namelike-name sub namelike,
-        value string;
-    namelike-prefix sub namelike,
-        value string;
-    namelike-title sub namelike,
-        value string;
+attribute namelike-alias sub namelike;
 
-publishingdate sub attribute,
+attribute namelike-department sub namelike;
+
+attribute namelike-first sub namelike;
+
+attribute namelike-id sub namelike;
+
+attribute namelike-last sub namelike;
+
+attribute namelike-name sub namelike;
+
+attribute namelike-prefix sub namelike;
+
+attribute namelike-title sub namelike;
+
+attribute publishingdate,
     value string;
         
-provenant-datetime sub attribute,
-    abstract,
-    value datetime,
-    owns datetime-end-recorded,
-    owns datetime-end-updated;
-
-provenant-long sub attribute,
-    abstract,
-    value long,
-    owns datetime-end-recorded,
-    owns datetime-end-updated;
-
-provenant-string sub attribute,
-    abstract,
-    value string,
-    owns datetime-end-recorded,
-    owns datetime-end-updated;
-
-hashvalue sub provenant-string,
+attribute hashvalue,
     value string;
                 
-querycode sub attribute,
-    value string,
-    plays datacollection:queryattribute;
+attribute querycode,
+    value string;
 
-question sub attribute,
-    value string,
-    plays datacollection:queryattribute;
+attribute question,
+    value string;
  
-attribution sub relation,
-    abstract,
+# ----------------- RELATIONS -----------------
+
+relation attribution @abstract,
     relates attributedthing,
     relates attributedto,
-   relates preselectedinformation;
+    relates preselectedinformation;
     
-    discriminatingconcept sub attribution,
-        abstract;
-    #    plays informationquestion:structuresinformation;
+relation discriminatingconcept sub attribution;
+#    plays informationquestion:structuresinformation;
         
-    #    discriminatingconcept-project sub discriminatingconcept;
-    #
-    #        domain sub discriminatingconcept-project;
-    #        theme sub discriminatingconcept-project;
+#    relation discriminatingconcept-project sub discriminatingconcept;
+#        relation domain sub discriminatingconcept-project;
+#        relation theme sub discriminatingconcept-project;
         
-        discriminatingconcept-bol sub discriminatingconcept,
-            abstract;
+relation discriminatingconcept-bol sub discriminatingconcept;
             
-            discriminatingconcept-bol-scientific sub discriminatingconcept-bol;
-            discriminatingconcept-bol-projectreports sub discriminatingconcept-bol;
-            discriminatingconcept-bol-surveys sub discriminatingconcept-bol;
-            discriminatingconcept-bol-greyliterature sub discriminatingconcept-bol;
+relation discriminatingconcept-bol-scientific sub discriminatingconcept-bol;
+relation discriminatingconcept-bol-projectreports sub discriminatingconcept-bol;
+relation discriminatingconcept-bol-surveys sub discriminatingconcept-bol;
+relation discriminatingconcept-bol-greyliterature sub discriminatingconcept-bol;
             
-userpersona sub relation,
-    abstract, 
+relation userpersona @abstract, 
     owns description, 
     owns namelike-name, 
     owns professionalrole,    
@@ -157,193 +122,184 @@ userpersona sub relation,
     relates users,
     plays attribution:preselectedinformation;
     
-        userpersona-targetgroups sub userpersona;
-            userpersona-targetgroups-communication sub userpersona-targetgroups;
-            userpersona-targetgroups-contact sub userpersona-targetgroups;
-        userpersona-strategicoverview sub userpersona;
-#            userpersona-strategicoverview-reporting sub userpersona-strategicoverview;
-#            userpersona-strategicoverview-brainstorm sub userpersona-strategicoverview;
-        userpersona-bestpractices sub userpersona;
+relation userpersona-targetgroups sub userpersona;
+relation userpersona-targetgroups-communication sub userpersona-targetgroups;
+relation userpersona-targetgroups-contact sub userpersona-targetgroups;
 
-#categorization sub relation,
-#    abstract,
+relation userpersona-strategicoverview sub userpersona;
+#relation userpersona-strategicoverview-reporting sub userpersona-strategicoverview;
+#relation userpersona-strategicoverview-brainstorm sub userpersona-strategicoverview;
+
+relation userpersona-bestpractices sub userpersona;
+
+#relation categorization @abstract,
 #    relates category,
 #    relates pertainsto;
 
-composition sub relation,
-    abstract,
+relation composition @abstract,
     relates composedby,
     relates composes;
     
-    composition-project sub composition,
-        relates overarchingproject as composedby,
-        relates projectpart as composes;
+relation composition-project sub composition,
+    relates overarchingproject as composedby,
+    relates projectpart as composes;
     
-        component-project-strategyimplementation sub composition-project,
-            relates overarchingprogram as overarchingproject,
-            relates implementedstrategy as projectpart;
-        component-project-activityeffectuation sub composition-project,
-            relates effectuatedwithin as overarchingproject,
-            relates effectuatedactivity as projectpart;
-    
-    composition-organizational sub composition,
-        relates organizationalunit as composes,
-        relates overarchingunit as composedby;       
-    composition-project sub composition,
-        relates overarchingproject as composedby,
-        relates projectpart as composes;
+relation component-project-strategyimplementation sub composition-project,
+    relates overarchingprogram as overarchingproject,
+    relates implementedstrategy as projectpart;
 
-targetedpopulation sub relation,
+relation component-project-activityeffectuation sub composition-project,
+    relates effectuatedwithin as overarchingproject,
+    relates effectuatedactivity as projectpart;
+    
+relation composition-organizational sub composition,
+    relates organizationalunit as composes,
+    relates overarchingunit as composedby;       
+
+relation targetedpopulation,
     relates targetingentity,
     relates targetgroup;
         
-datacollection sub relation,
-    relates datacollectionmethod,
-    relates queryattribute;
+relation datacollection,
+    relates datacollectionmethod;
 
-employment sub relation,
+relation employment,
     relates employed-by,
     relates employs;
 
-funding sub relation,
-    abstract,
+relation funding @abstract,
     relates funder,
     relates fundingproject,
     relates recipient,
     relates setsconditions;
     
-    funding-external sub funding,
-        relates recipient-institute as recipient,
-        relates subsidyprovider as funder;
-    funding-internal sub funding,
-        relates component-funding as funder,
-        relates recipient-component as recipient;
+relation funding-external sub funding,
+    relates recipient-institute as recipient,
+    relates subsidyprovider as funder;
 
-#informationquestion sub relation,
+relation funding-internal sub funding,
+    relates component-funding as funder,
+    relates recipient-component as recipient;
+
+#relation informationquestion,
 #    owns question,
 #    relates asksinformation,
 #    relates structuresinformation,
 #    plays userpersona:userquestion;
 
-projectpartnership sub relation,
-    abstract,
+relation projectpartnership @abstract,
     relates consortium,
     relates leadpartner,
     relates partner,
     plays leadingmanagement:leadingmanagingpartner;
     
-    participationinternal sub projectpartnership,
-        relates internallycooperatingcomponents as consortium,
-        relates leadingcomponent as leadpartner,
-        relates partnercomponent as partner,
-        plays internalleadingmanagement:leadingmanagingcomponent;
+relation participationinternal sub projectpartnership,
+    relates internallycooperatingcomponents as consortium,
+    relates leadingcomponent as leadpartner,
+    relates partnercomponent as partner,
+    plays internalleadingmanagement:leadingmanagingcomponent;
         
-contributionrole sub relation,
-    abstract,
+relation contributionrole @abstract,
     relates contributedto,
     relates contributor;
     
-    projectrole sub contributionrole, 
-        abstract; 
+relation projectrole sub contributionrole; 
         
-        financialcontrol sub projectrole,
-            relates controlledproject as contributedto,
-            relates financialcontroller as contributor;
-        projectmanagement sub projectrole,
-            relates managedsubproject as contributedto,
-            relates projectmanager as contributor;
-        research sub projectrole,
-            relates researcher as contributor;
-        leadingmanagement sub projectrole,
-            relates leadingmanager as contributor,
-            relates leadingmanagingpartner,
-            relates managedproject as contributedto;
+relation financialcontrol sub projectrole,
+    relates controlledproject as contributedto,
+    relates financialcontroller as contributor;
+
+relation projectmanagement sub projectrole,
+    relates managedsubproject as contributedto,
+    relates projectmanager as contributor;
+
+relation research sub projectrole,
+    relates researcher as contributor;
+
+relation leadingmanagement sub projectrole,
+    relates leadingmanager as contributor,
+    relates leadingmanagingpartner,
+    relates managedproject as contributedto;
         
-            internalleadingmanagement sub leadingmanagement,
-                relates leadingmanagingcomponent as leadingmanagingpartner;
+relation internalleadingmanagement sub leadingmanagement,
+    relates leadingmanagingcomponent as leadingmanagingpartner;
         
-    authorship sub contributionrole,
-        owns authorship-id @key,
-        relates authoredwork as contributedto,
-        relates author as contributor;
+relation authorship sub contributionrole,
+    owns authorship-id @key,
+    relates authoredwork as contributedto,
+    relates author as contributor;
     
-component sub entity,
-    abstract,
+# ----------------- ENTITIES -----------------
+
+entity component @abstract,
     owns description,
     owns namelike-name,
     plays attribution:attributedto;
     
-    component-institution sub component,
-        abstract,
-        plays composition-organizational:organizationalunit,
-        plays composition-organizational:overarchingunit,
-        plays funding-internal:component-funding,
-        plays funding-internal:recipient-component,
-        plays participationinternal:leadingcomponent,
-        plays participationinternal:partnercomponent;
+entity component-institution sub component,
+    plays composition-organizational:organizationalunit,
+    plays composition-organizational:overarchingunit,
+    plays funding-internal:component-funding,
+    plays funding-internal:recipient-component,
+    plays participationinternal:leadingcomponent,
+    plays participationinternal:partnercomponent;
         
-        component-institution-universityofappliedsciences sub component-institution,
-            abstract;
+entity component-institution-universityofappliedsciences sub component-institution;
             
-            centreofexpertise sub component-institution-universityofappliedsciences;
-            keyarea sub component-institution-universityofappliedsciences;
-            researchdepartment sub component-institution-universityofappliedsciences;
-            school sub component-institution-universityofappliedsciences,
-                owns namelike-department;
+entity centreofexpertise sub component-institution-universityofappliedsciences;
+entity keyarea sub component-institution-universityofappliedsciences;
+entity researchdepartment sub component-institution-universityofappliedsciences;
+
+entity school sub component-institution-universityofappliedsciences,
+    owns namelike-department;
                 
-    component-project sub component,
-        abstract;
+entity component-project sub component;
         
-         component-project-ep_interventionstrategy sub component-project,
-            abstract,
-            plays component-project-strategyimplementation:implementedstrategy,
-            plays targetedpopulation:targetingentity,
-            plays component-project-activityeffectuation:effectuatedwithin;
+entity component-project-ep_interventionstrategy sub component-project,
+    plays component-project-strategyimplementation:implementedstrategy,
+    plays targetedpopulation:targetingentity,
+    plays component-project-activityeffectuation:effectuatedwithin;
             
-            interventionstrategy-consumerprotection sub component-project-ep_interventionstrategy;
-            interventionstrategy-financialaid sub component-project-ep_interventionstrategy;
-            interventionstrategy-energyefficiency sub component-project-ep_interventionstrategy;
-            interventionstrategy-informationprovision sub component-project-ep_interventionstrategy;
-            interventionstrategy-behaviouralchange sub component-project-ep_interventionstrategy;
-            interventionstrategy-climatemitigation sub component-project-ep_interventionstrategy;
-    
-        compnent-project-activity sub entity,
-            plays component-project-activityeffectuation:effectuatedactivity;
+entity interventionstrategy-consumerprotection sub component-project-ep_interventionstrategy;
+entity interventionstrategy-financialaid sub component-project-ep_interventionstrategy;
+entity interventionstrategy-energyefficiency sub component-project-ep_interventionstrategy;
+entity interventionstrategy-informationprovision sub component-project-ep_interventionstrategy;
+entity interventionstrategy-behaviouralchange sub component-project-ep_interventionstrategy;
+entity interventionstrategy-climatemitigation sub component-project-ep_interventionstrategy;
+
+entity compnent-project-activity,
+    plays component-project-activityeffectuation:effectuatedactivity;
               
-        
-datacollectionmethod sub entity,
+entity datacollectionmethod,
     owns description,
     plays datacollection:datacollectionmethod;
     
-    query sub datacollectionmethod,
-        owns querycode;
-    questionnaire sub datacollectionmethod,
-        owns address-url,
-        owns question;
-        
+entity query sub datacollectionmethod,
+    owns querycode;
 
+entity questionnaire sub datacollectionmethod,
+    owns address-url,
+    owns question;
         
-textdocument sub entity,
+entity textdocument,
     owns hashvalue @key,
     owns namelike-title,
     owns publishingdate,
     plays attribution:attributedthing,
     plays authorship:authoredwork;
     
-    scientificjournalarticle sub textdocument;
-    book sub textdocument;
-    bookchapter sub textdocument;
-    projectproposal sub textdocument;
-    blogpost sub textdocument;
-    newspaperarticle sub textdocument;
-    policypaper sub textdocument;
-    interview sub textdocument;
-    scientificstudiereport sub textdocument;
-    thesis sub textdocument;
+entity scientificjournalarticle sub textdocument;
+entity book sub textdocument;
+entity bookchapter sub textdocument;
+entity projectproposal sub textdocument;
+entity blogpost sub textdocument;
+entity newspaperarticle sub textdocument;
+entity policypaper sub textdocument;
+entity interview sub textdocument;
+entity scientificstudiereport sub textdocument;
+entity thesis sub textdocument;
      
-
-institution sub entity,
-    abstract,
+entity institution @abstract,
     owns legalform-bel,
     owns legalform-deu,
     owns legalform-fra,
@@ -357,21 +313,19 @@ institution sub entity,
     plays projectpartnership:leadpartner,
     plays projectpartnership:partner;
     
-    knowledgeinstitution sub institution,
-        abstract;
-        researchuniversity sub knowledgeinstitution;
-        universityofappliedsciences sub knowledgeinstitution;
+entity knowledgeinstitution sub institution;
+entity researchuniversity sub knowledgeinstitution;
+entity universityofappliedsciences sub knowledgeinstitution;
         
-    semigovernmentalinstitution sub institution;
-    nongovernmentalinstitution sub institution;
-    governinginstitution sub institution,
-        abstract;
-            
-        munincipality sub governinginstitution;
-    
-    publishinginstitution sub  institution;
+entity semigovernmentalinstitution sub institution;
+entity nongovernmentalinstitution sub institution;
 
-person sub entity,
+entity governinginstitution sub institution;
+entity munincipality sub governinginstitution;
+    
+entity publishinginstitution sub institution;
+
+entity person,
     owns address-email,
     owns person-key @key,
     owns geocode-nationality,
@@ -382,13 +336,11 @@ person sub entity,
     plays contributionrole:contributor,
     plays authorship:author;
     
-   user sub person,
-   plays userpersona:users;
-#        plays informationquestion:asksinformation,
+entity user sub person,
+    plays userpersona:users;
+#    plays informationquestion:asksinformation;
         
-
-projectlike sub entity,
-    abstract,
+entity projectlike @abstract,
     owns date-event-end,
     owns date-event-start,
     owns namelike-name,
@@ -399,27 +351,26 @@ projectlike sub entity,
     plays projectpartnership:consortium,
     plays contributionrole:contributedto;
 
-
-subproject sub projectlike,
+entity subproject sub projectlike,
     plays composition-project:projectpart,
     plays projectmanagement:managedsubproject;
 
-ep-interventionprogram sub projectlike,
+entity ep-interventionprogram sub projectlike,
     plays component-project-strategyimplementation:overarchingprogram;
     
-subsidyplan sub entity,
+entity subsidyplan,
     owns description,
     owns namelike-name,
     plays attribution:attributedto,
     plays funding:setsconditions;
     
-activity sub entity,
+entity activity,
     owns namelike-name,
     owns description,
     plays attribution:attributedto,
     plays component-project-activityeffectuation:effectuatedactivity;
 
-targetgroup sub entity,     
+entity targetgroup,     
     owns namelike-name,
     owns description,
     plays targetedpopulation:targetgroup;
