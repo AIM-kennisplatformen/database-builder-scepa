@@ -212,3 +212,5 @@ __marimo__/
 *.egg-info
 
 .lycheecache
+
+PDF_INPUT/

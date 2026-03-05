@@ -1,7 +1,7 @@
 [project]
 authors = [{name = "Hoog-v", email = "hogeweyv@gmail.com"}]
 name = "database_builder_scepa"
-requires-python = ">= 3.11, <=3.12"
+requires-python = "== 3.11"
 version = "0.1.0"
 dependencies = [
     "typedb-driver==2.29.2",
@@ -16,7 +16,7 @@ dependencies = [
     "torchvision",
     "testcontainers",
     "qdrant-client"
-, "docling>=2.73.0,<3", "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git"]
+, "docling>=2.73.0,<3", "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git", "span-marker>=1.7.0,<2", "openai>=2.24.0,<3", "pypdf>=6.7.3,<7"]
 
 [dependency-groups]
 dev = [
@@ -29,6 +29,7 @@ dev = [
   "ty>=0.0.12",
   "types-openpyxl>=3.1.5.20250919",
   "types-requests>=2.32.4.20260107",
+  "lingua-language-detector"
 ]
 
 [build-system]

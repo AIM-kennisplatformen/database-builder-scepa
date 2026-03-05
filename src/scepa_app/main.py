@@ -4,83 +4,75 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from database_builder_libs.sources.zotero_source import ZoteroSource
 from dotenv import load_dotenv
+
+from .document_parsing.extraction.extract_text_chunks import TextChunkExtractor
+from .document_parsing.extraction.extract_text_structure import TextStructureExtractor
+
+from .document_parsing.embedding.embed_chunks import ChunkEmbedder
+from .document_parsing.embedding.openai_embedding_model import OpenAICompatibleEmbeddingModel
+from .document_parsing.extraction.extract_text_metadata import TextMetadataExtractor
+
 load_dotenv()
 
 LAST_SYNC_FILE = Path(".last_sync")
 DOWNLOAD_DIR = Path("./downloads")
 
-
-
 DEFAULT_SYNC_TIME = datetime(2025, 11, 21, 9, 4, 50, tzinfo=timezone.utc)
 
+
 def load_last_sync() -> datetime:
-    """Load last synchronization timestamp from disk."""
     if not LAST_SYNC_FILE.exists():
         return DEFAULT_SYNC_TIME
+    return datetime.fromisoformat(LAST_SYNC_FILE.read_text().strip()).astimezone(timezone.utc)
 
-    return datetime.fromisoformat(LAST_SYNC_FILE.read_text().strip()).astimezone(
-        timezone.utc
-    )
+
 def save_last_sync(ts: datetime) -> None:
-    """Persist latest synchronization timestamp."""
     LAST_SYNC_FILE.write_text(ts.isoformat())
 
-
-def build_config() -> dict:
-    """Read Zotero credentials from environment variables."""
-    return {
-        "library_id": os.environ["ZOTERO_LIBRARY_ID"],
-        "library_type": os.environ.get("ZOTERO_LIBRARY_TYPE", "group"),
-        "api_key": os.environ["ZOTERO_API_KEY"],
-        "collection": os.environ.get("ZOTERO_COLLECTION_ID"),
-    }
-
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
 
 def main() -> None:
-    # Prepare directories
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
+    pdf_path = Path(os.getenv("PDF_PATH", "PDF_INPUT/document.pdf"))
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found: {pdf_path.resolve()}")
 
-    # Load cursor
-    last_synced = load_last_sync()
-    print(f"Last sync: {last_synced}")
+    structure_extractor = TextStructureExtractor()
+    docling_doc = TextStructureExtractor._convert(self=structure_extractor, pdf_path=str(pdf_path))
 
-    # Connect source
-    source = ZoteroSource()
-    source.connect(build_config())
+    sections = structure_extractor._extract_sections(docling_doc)
 
-    # Discover changed items
-    artefacts = source.get_list_artefacts(last_synced)
-    print(f"Found {len(artefacts)} changed items")
+    metadata_extractor = TextMetadataExtractor()
+    metadata = metadata_extractor.extract(pdf_path=str(pdf_path), doc=docling_doc)
 
-    if not artefacts:
-        print("Nothing to do.")
-        return
+    chunk_extractor = TextChunkExtractor()
+    chunks = chunk_extractor.extract_chunks(
+        sections,
+        document_id=os.getenv("DOCUMENT_ID", pdf_path.stem),
+    )
 
-    # Fetch metadata
-    contents = source.get_content(artefacts)
-
-    for content in contents:
-        print("=" * 60)
-        print(f"Item:      {content.id_}")
-        print(f"Modified:  {content.date}")
-        print(f"Title:     {content.content.get('title')}")
-        print(f"Type:      {content.content.get('itemType')}")
-
-    # Download attachments (example: first 5 items)
-    print("\nDownloading attachments...")
-    for item_key, _ in artefacts[:5]:
-        source.download_zotero_item(
-            item_id=item_key,
-            download_path=str(DOWNLOAD_DIR),
+    embedder = ChunkEmbedder(
+        OpenAICompatibleEmbeddingModel(
+            base_url=require_env("OPENAI_HOST"),
+            api_key=require_env("OPENAI_API_KEY"),
+            model=require_env("OPENAI_EMBEDDING_MODEL"),
         )
+    )
+    embedder.embed(chunks)
+    print(len(chunks), "embedded chunks")
 
-    # Update cursor
-    newest = max(ts for _, ts in artefacts)
-    save_last_sync(newest)
-
-    print(f"\nSync complete. New cursor: {newest}")
+    # Print a concise summary
+    print(f"Document metadata: {metadata}")
+    print(f"Sections extracted: {len(sections)}")
+    print(f"Chunks created:     {len(chunks)}")
+    for c in chunks[:17]:
+        print("-" * 60)
+        print(f"chunk_index={c.chunk_index} section={c.metadata.get('section_title') if c.metadata else None}")
+        print(c.text[:300].replace("\n", " ") + ("..." if len(c.text) > 300 else ""))
 
 
 if __name__ == "__main__":
