@@ -15,17 +15,8 @@ class TextStructureExtractor:
     def __init__(self) -> None:
         self._converter = VectorizeDocument()
 
-    def extract(self, pdf_path: str) -> List[Tuple[str, str, List[DataFrame]]]:
-        """
-        Returns a list of tuples:
-            (section_title, section_text, tables)
-        """
 
-        doc = self._convert(pdf_path)
-        return self._extract_sections(doc)
-
-
-    def _convert(self, pdf_path: str) -> DoclingDocument:
+    def convert(self, pdf_path: str) -> DoclingDocument:
         path = Path(pdf_path)
 
         with path.open("rb") as f:
@@ -36,7 +27,7 @@ class TextStructureExtractor:
 
         return result
 
-    def _extract_sections(
+    def extract_sections(
         self,
         doc: DoclingDocument,
     ) -> List[Tuple[str, str, List[DataFrame]]]:

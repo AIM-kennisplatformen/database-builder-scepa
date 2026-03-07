@@ -14,8 +14,35 @@ from ..document_parsing.extraction.extract_text_metadata import TextMetadata
 
 
 class MetadataNodeExporter:
+    NOISE_TERMS = {
+    "interviewees",
+    "participants",
+    "attendees",
+    "reviewers",
+    "respondents",
+    "community members",
+    "staff",
+    "team",
+    "students",
+    "focus group",
+    "focus groups",
+    "survey participants",
+    }
+     
+    def _is_noise_ack(self, name: str) -> bool:
+        n = name.lower()
+
+        if len(n) < 3:
+            return True
+
+        for term in self.NOISE_TERMS:
+            if term in n:
+                return True
+
+        return False
 
     def export(self, metadata_list: Iterable[TextMetadata]) -> List[Node]:
+
         nodes: Dict[str, Node] = {}
 
         for meta in metadata_list:
@@ -24,24 +51,119 @@ class MetadataNodeExporter:
 
             relations = []
 
+            # ─────────────────────────────
+            # AUTHORS
+            # ─────────────────────────────
+
             if meta.authors:
                 for author in meta.authors:
-                    person_node = self._build_person_node(author)
 
+                    person_node = self._build_person_node(author)
                     nodes.setdefault(person_node.id, person_node)
 
                     relations.append(
                         self._build_authorship_relation(author, doc_hash)
                     )
-            if meta.institute:
 
-                institute_node = self._build_institution_node(meta.institute)
+            # ─────────────────────────────
+            # INSTITUTIONS
+            # ─────────────────────────────
 
-                nodes.setdefault(str(institute_node.id), institute_node)
+            if meta.institutions:
 
-                relations.append(
-                    self._build_attribution_relation(meta.institute, doc_hash)
-                )
+                for inst in meta.institutions:
+
+                    inst_node = self._build_institution_node(inst.name)
+                    nodes.setdefault(str(inst_node.id), inst_node)
+
+                    relations.append(
+                        self._build_attribution_relation(inst.name, doc_hash)
+                    )
+
+                    # hierarchy relation
+                    if inst.parent:
+
+                        parent_node = self._build_institution_node(inst.parent)
+                        nodes.setdefault(str(parent_node.id), parent_node)
+
+                        relations.append(
+                            self._build_part_of_relation(inst.name, inst.parent)
+                        )
+
+            # ─────────────────────────────
+            # ACKNOWLEDGEMENTS
+            # ─────────────────────────────
+
+            # ─────────────────────────────
+            # ACKNOWLEDGEMENTS
+            # ─────────────────────────────
+
+            if meta.acknowledgements:
+
+                for ack in meta.acknowledgements:
+                    if self._is_noise_ack(ack.name):
+                        continue
+                    if ack.type == "person":
+
+                        person_node = self._build_person_node(ack.name)
+                        nodes.setdefault(str(person_node.id), person_node)
+
+                        entity_type = "person"
+                        key_attr = "person-key"
+                        key = self._normalize_person_key(ack.name)
+
+                    else:
+
+                        inst_node = self._build_institution_node(ack.name)
+                        nodes.setdefault(str(inst_node.id), inst_node)
+
+                        entity_type = "publishinginstitution"
+                        key_attr = "namelike-name"
+                        key = ack.name
+
+                    # attribution relation (must use concrete subtype)
+                    relations.append({
+                        "type": "discriminatingconcept-bol-greyliterature",
+                        "roles": {
+                            "attributedto": {
+                                "entity_type": entity_type,
+                                "key_attr": key_attr,
+                                "key": key,
+                            },
+                            "attributedthing": {
+                                "entity_type": "textdocument",
+                                "key_attr": "hashvalue",
+                                "key": doc_hash,
+                            },
+                        },
+                        "attributes": {
+                            "function": ack.relation
+                        }
+                    })
+
+                    # funding detection
+                    if ack.relation == "funding" and meta.institutions:
+
+                        relations.append({
+                            "type": "funding-external",
+                            "roles": {
+                                "subsidyprovider": {
+                                    "entity_type": "institution",
+                                    "key_attr": "namelike-name",
+                                    "key": ack.name,
+                                },
+                                "recipient-institute": {
+                                    "entity_type": "institution",
+                                    "key_attr": "namelike-name",
+                                    "key": meta.institutions[0].name,
+                                }
+                            }
+                        })
+
+            # ─────────────────────────────
+            # DOCUMENT
+            # ─────────────────────────────
+
             document_node = self._build_document_node(
                 meta,
                 doc_hash,
@@ -51,13 +173,14 @@ class MetadataNodeExporter:
             nodes[document_node.id] = document_node
 
         return list(nodes.values())
+    # ─────────────────────────────────────────────
+    # Institution node
+    # ─────────────────────────────────────────────
 
     def _build_institution_node(self, institute: str) -> Node:
 
-        key = institute
-
         return Node(
-            id=NodeId(key),
+            id=NodeId(institute),
             entity_type=EntityType("publishinginstitution"),
             key_attribute=KeyAttribute("namelike-name"),
             payload_data={
@@ -65,6 +188,11 @@ class MetadataNodeExporter:
             },
             relations=(),
         )
+
+    # ─────────────────────────────────────────────
+    # Document attribution
+    # ─────────────────────────────────────────────
+
     def _build_attribution_relation(self, institute: str, doc_hash: str):
 
         return {
@@ -82,6 +210,33 @@ class MetadataNodeExporter:
                 },
             },
         }
+
+    # ─────────────────────────────────────────────
+    # Institution hierarchy
+    # ─────────────────────────────────────────────
+
+    def _build_part_of_relation(self, child: str, parent: str):
+
+        return {
+            "type": "composition-organizational",
+            "roles": {
+                "organizationalunit": {
+                    "entity_type": "publishinginstitution",
+                    "key_attr": "namelike-name",
+                    "key": child,
+                },
+                "overarchingunit": {
+                    "entity_type": "publishinginstitution",
+                    "key_attr": "namelike-name",
+                    "key": parent,
+                },
+            },
+        }
+
+    # ─────────────────────────────────────────────
+    # Document node
+    # ─────────────────────────────────────────────
+
     def _build_document_node(
         self,
         meta: TextMetadata,
@@ -101,7 +256,13 @@ class MetadataNodeExporter:
             payload_data=payload,
             relations=relations,
         )
+
+    # ─────────────────────────────────────────────
+    # Person node
+    # ─────────────────────────────────────────────
+
     def _build_person_node(self, name: str) -> Node:
+
         key = self._normalize_person_key(name)
 
         parts = name.strip().split(" ", 1)
@@ -122,10 +283,14 @@ class MetadataNodeExporter:
             relations=(),
         )
 
-    def _build_authorship_relation(self, author: str, doc_hash: str) -> dict:
+    # ─────────────────────────────────────────────
+    # Authorship
+    # ─────────────────────────────────────────────
+
+    def _build_authorship_relation(self, author: str, doc_hash: str):
+
         person_key = self._normalize_person_key(author)
 
-        # deterministic relation id
         rel_id = hashlib.sha256(
             f"{person_key}|{doc_hash}".encode()
         ).hexdigest()
@@ -149,16 +314,24 @@ class MetadataNodeExporter:
             },
         }
 
-    def _compute_hash(self, meta: TextMetadata) -> str:
-        basis = "|".join(
-            [
-                meta.title or "",
-                ",".join(meta.authors or []),
-                meta.institute or "",
-            ]
-        )
+    # ─────────────────────────────────────────────
+    # Hash
+    # ─────────────────────────────────────────────
 
-        return hashlib.sha256(basis.encode()).hexdigest()
+    def _compute_hash(self, meta):
+
+        parts = [
+            meta.title or "",
+            ",".join(meta.authors) if meta.authors else "",
+            ",".join(i.name for i in meta.institutions) if meta.institutions else "",
+            meta.summary or "",
+        ]
+
+        return hashlib.sha256("|".join(parts).encode()).hexdigest()
+    
+    # ─────────────────────────────────────────────
+    # Helpers
+    # ─────────────────────────────────────────────
 
     def _normalize_person_key(self, name: str) -> str:
         return name.strip().lower().replace(" ", "_")

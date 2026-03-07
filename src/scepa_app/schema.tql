@@ -127,9 +127,10 @@ question sub attribute,
  
 attribution sub relation,
     abstract,
+    owns function,
     relates attributedthing,
     relates attributedto,
-   relates preselectedinformation;
+    relates preselectedinformation;
     
     discriminatingconcept sub attribution,
         abstract;
@@ -352,11 +353,13 @@ institution sub entity,
     owns namelike-name,
     plays attribution:attributedto,
     plays composition-organizational:overarchingunit,
+    plays composition-organizational:organizationalunit,
     plays employment:employs,
+    plays funding-external:recipient-institute,
     plays funding-external:subsidyprovider,
     plays projectpartnership:leadpartner,
     plays projectpartnership:partner;
-    
+
     knowledgeinstitution sub institution,
         abstract;
         researchuniversity sub knowledgeinstitution;
