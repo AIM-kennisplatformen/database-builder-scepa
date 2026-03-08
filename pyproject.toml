@@ -54,7 +54,7 @@ pkg-config = ">=0.29.2"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = ["--import-mode=importlib"]
-testpaths = ["tests/backend"]
+testpaths = ["tests/"]
 filterwarnings = [
     "ignore:datetime.datetime.utcnow.*:DeprecationWarning"
 ]
