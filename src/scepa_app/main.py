@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import os
 from pathlib import Path
 from typing import Any
@@ -160,7 +162,11 @@ def main():
 
     last_sync = sync.start_sync("Zotero")
 
-    artifacts = zot.get_list_artefacts(last_synced=last_sync)
+    last_sync_dt = (
+        datetime.fromtimestamp(last_sync) if last_sync is not None else None
+    )
+
+    artifacts = zot.get_list_artefacts(last_synced=last_sync_dt)
 
     sync.finish_sync("Zotero", artifacts)
 

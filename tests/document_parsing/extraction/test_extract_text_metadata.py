@@ -2,22 +2,12 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
-from docling_core.types.doc import SectionHeaderItem, TextItem
 
 from scepa_app.document_parsing.extraction.extract_text_metadata import (
     TextMetadataExtractor,
-    Institution,
+    TextMetadata,
     Acknowledgement,
 )
-
-
-# -------------------------------------------------
-# Helpers
-# -------------------------------------------------
-
-class FakeNode:
-    def __init__(self, text):
-        self.text = text
 
 
 class FakeDoc:
@@ -25,142 +15,86 @@ class FakeDoc:
         self.items = items
 
     def iterate_items(self):
-        for i in self.items:
-            yield i, None
+        for item in self.items:
+            yield item, None
 
-class FakeSectionHeader(SectionHeaderItem):
+
+class FakeHeader:
     def __init__(self, text):
         self.text = text
 
 
-class FakeText(TextItem):
+class FakeText:
     def __init__(self, text):
         self.text = text
+
+
+PATCH_PATH = "scepa_app.document_parsing.extraction.extract_text_metadata"
+
+
+def patch_docling():
+    return patch(f"{PATCH_PATH}.SectionHeaderItem", FakeHeader), patch(
+        f"{PATCH_PATH}.TextItem", FakeText
+    )
+
 
 # -------------------------------------------------
 # Summary extraction
 # -------------------------------------------------
+
 def test_find_summary():
 
-    class FakeHeader:
-        def __init__(self, text):
-            self.text = text
+    with patch_docling()[0], patch_docling()[1]:
 
-    class FakeText:
-        def __init__(self, text):
-            self.text = text
-
-    class FakeDoc:
-        def __init__(self, items):
-            self.items = items
-
-        def iterate_items(self):
-            for i in self.items:
-                yield i, None
-
-    with patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.SectionHeaderItem",
-        FakeHeader,
-    ), patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.TextItem",
-        FakeText,
-    ):
-
-        doc = FakeDoc([
-            FakeHeader("Abstract"),
-            FakeText("Line one."),
-            FakeText("Line two."),
-            FakeHeader("Introduction"),
-        ])
+        doc = FakeDoc(
+            [
+                FakeHeader("Abstract"),
+                FakeText("Line one."),
+                FakeText("Line two."),
+                FakeHeader("Introduction"),
+            ]
+        )
 
         extractor = TextMetadataExtractor()
 
         summary = extractor._find_summary(doc)
 
         assert summary == "Line one.\nLine two."
-# -------------------------------------------------
-# Title heuristics
-# -------------------------------------------------
+
 
 def test_first_section_header_used_as_title():
 
-    class FakeHeader:
-        def __init__(self, text):
-            self.text = text
+    with patch_docling()[0], patch_docling()[1]:
 
-    class FakeText:
-        def __init__(self, text):
-            self.text = text
-
-    class FakeDoc:
-        def __init__(self, items):
-            self.items = items
-
-        def iterate_items(self):
-            for i in self.items:
-                yield i, None
-
-    with patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.SectionHeaderItem",
-        FakeHeader,
-    ), patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.TextItem",
-        FakeText,
-    ):
-
-        doc = FakeDoc([
-            FakeHeader("A Very Interesting Paper"),
-            FakeText("Some text"),
-        ])
+        doc = FakeDoc(
+            [
+                FakeHeader("A Very Interesting Paper"),
+                FakeText("Some text"),
+            ]
+        )
 
         extractor = TextMetadataExtractor()
 
-        title = extractor._first_section_header(doc)
+        assert extractor._first_section_header(doc) == "A Very Interesting Paper"
 
-        assert title == "A Very Interesting Paper"
 
 def test_title_heuristic_from_first_lines():
 
-    class FakeHeader:
-        def __init__(self, text):
-            self.text = text
+    with patch_docling()[0], patch_docling()[1]:
 
-    class FakeText:
-        def __init__(self, text):
-            self.text = text
-
-    class FakeDoc:
-        def __init__(self, items):
-            self.items = items
-
-        def iterate_items(self):
-            for i in self.items:
-                yield i, None
-
-    with patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.SectionHeaderItem",
-        FakeHeader,
-    ), patch(
-        "scepa_app.document_parsing.extraction.extract_text_metadata.TextItem",
-        FakeText,
-    ):
-
-        doc = FakeDoc([
-            FakeText("A Very Interesting Paper Title"),
-            FakeText("Author Name"),
-        ])
+        doc = FakeDoc(
+            [
+                FakeText("A Very Interesting Paper Title"),
+                FakeText("Author Name"),
+            ]
+        )
 
         extractor = TextMetadataExtractor()
 
         lines = extractor._first_lines(doc, limit=10)
 
-        title = extractor._first_reasonable_line(lines)
+        assert extractor._first_reasonable_line(lines) == "A Very Interesting Paper Title"
 
-        assert title == "A Very Interesting Paper Title"
-
-# -------------------------------------------------
-# Author splitting
-# -------------------------------------------------
 
 @pytest.mark.parametrize(
     "value,expected",
@@ -192,9 +126,6 @@ def test_extract_llm_parses_json():
                 content=json.dumps(
                     {
                         "authors": ["Alice Smith"],
-                        "institutions": [
-                            {"name": "MIT", "parent": None}
-                        ],
                         "acknowledgements": [
                             {
                                 "name": "Bob",
@@ -212,13 +143,9 @@ def test_extract_llm_parses_json():
 
     extractor = TextMetadataExtractor(llm_client=llm)
 
-    authors, institutions, acknowledgements = extractor._extract_llm(["line"])
+    authors, acknowledgements = extractor._extract_llm(["line"])
 
     assert authors == ["Alice Smith"]
-
-    assert institutions == [
-        Institution(name="MIT", parent=None)
-    ]
 
     assert acknowledgements == [
         Acknowledgement(name="Bob", type="person", relation="review")
@@ -236,18 +163,13 @@ def test_extract_llm_handles_invalid_json():
 
     extractor = TextMetadataExtractor(llm_client=llm)
 
-    authors, institutions, acknowledgements = extractor._extract_llm(["line"])
+    authors, acknowledgements = extractor._extract_llm(["line"])
 
     assert authors is None
-    assert institutions is None
     assert acknowledgements == []
 
 
-# -------------------------------------------------
-# PDF metadata extraction
-# -------------------------------------------------
-
-@patch("scepa_app.document_parsing.extraction.extract_text_metadata.PdfReader")
+@patch(f"{PATCH_PATH}.PdfReader")
 def test_fill_from_pdf_metadata(mock_reader):
 
     reader = Mock()
@@ -257,9 +179,7 @@ def test_fill_from_pdf_metadata(mock_reader):
 
     extractor = TextMetadataExtractor()
 
-    from scepa_app.document_parsing.extraction.extract_text_metadata import TextMetadata
-
-    meta = TextMetadata()
+    meta = TextMetadata(source={})
 
     extractor._fill_from_pdf_metadata(meta, "file.pdf")
 
