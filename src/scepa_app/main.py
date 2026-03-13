@@ -2,29 +2,29 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
+from openai import OpenAI
 
 from .document_parsing.extraction.extract_text_chunks import TextChunkExtractor
 from .document_parsing.extraction.extract_text_structure import TextStructureExtractor
 from .document_parsing.extraction.extract_text_metadata import TextMetadataExtractor
+from .document_parsing.extraction.extract_text_metadata_zotero import ZoteroMetadataExtractor
 
 from .document_parsing.embedding.embed_chunks import ChunkEmbedder
 from .document_parsing.embedding.openai_embedding_model import OpenAICompatibleEmbeddingModel
 
 from .graph.graph_from_metadata import MetadataNodeExporter
-
-from database_builder_libs.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
-from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
-from openai import OpenAI
 from .util.node_util import print_nodes
+from .util.partial_sync import PartialSync
+
+from database_builder_libs.sources.zotero_source import ZoteroSource
+from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
+from database_builder_libs.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
 
 load_dotenv()
 
-
-# ---------------------------------------------------------
-# Config
-# ---------------------------------------------------------
 
 def require_env(name: str) -> str:
     value = os.getenv(name)
@@ -35,28 +35,29 @@ def require_env(name: str) -> str:
 
 def load_config() -> dict:
     return {
-        "pdf_path": Path(os.getenv("PDF_PATH", "PDF_INPUT/document.pdf")),
-        "document_id": os.getenv("DOCUMENT_ID"),
+        "pdf_path": Path(require_env("PDF_PATH")),
         "openai_host": require_env("OPENAI_HOST"),
         "openai_key": require_env("OPENAI_API_KEY"),
         "embedding_model": require_env("OPENAI_EMBEDDING_MODEL"),
         "typedb_uri": require_env("TYPEDB_URI"),
         "typedb_database": require_env("TYPEDB_DATABASE"),
         "typedb_schema": require_env("TYPEDB_SCHEMA_PATH"),
+        "zotero_library_id": require_env("ZOTERO_LIBRARY_ID"),
+        "zotero_api_key": require_env("ZOTERO_API_KEY"),
+        "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
     }
 
 
-# ---------------------------------------------------------
-# Extraction
-# ---------------------------------------------------------
-
 def parse_document(pdf_path: Path):
     extractor = TextStructureExtractor()
-    doc = extractor.convert(pdf_path=str(pdf_path))
+    doc = extractor.convert(str(pdf_path))
     sections = extractor.extract_sections(doc)
     return doc, sections
 
-def extract_metadata(pdf_path: Path, doc, config: dict):
+
+def extract_metadata(pdf_path: Path, doc, config: dict, zotero_item: dict[str, Any]):
+
+    zotero_meta = ZoteroMetadataExtractor().extract(zotero_entry=zotero_item)
 
     openai_client = OpenAI(
         base_url=config["openai_host"],
@@ -65,24 +66,22 @@ def extract_metadata(pdf_path: Path, doc, config: dict):
 
     extractor = TextMetadataExtractor(
         llm_client=openai_client,
-        llm_model="google/gemma-2-9b-it-fast"
+        llm_model="google/gemma-2-9b-it-fast",
     )
 
     return extractor.extract(
         pdf_path=str(pdf_path),
-        doc=doc
+        doc=doc,
+        meta=zotero_meta,
     )
 
+
 def extract_chunks(sections, document_id: str):
-    extractor = TextChunkExtractor()
-    return extractor.extract_chunks(sections, document_id=document_id)
+    return TextChunkExtractor().extract_chunks(sections, document_id=document_id)
 
-
-# ---------------------------------------------------------
-# Embedding
-# ---------------------------------------------------------
 
 def embed_chunks(chunks, config):
+
     embedder = ChunkEmbedder(
         OpenAICompatibleEmbeddingModel(
             base_url=config["openai_host"],
@@ -94,11 +93,8 @@ def embed_chunks(chunks, config):
     return embedder.embed(chunks)
 
 
-# ---------------------------------------------------------
-# Storage
-# ---------------------------------------------------------
-
 def store_vectors(chunks):
+
     qdrant = QdrantDatastore()
 
     qdrant.connect(
@@ -113,6 +109,7 @@ def store_vectors(chunks):
 
 
 def store_graph(nodes, config):
+
     typedb = TypeDbDatastore()
 
     typedb.connect(
@@ -122,88 +119,101 @@ def store_graph(nodes, config):
             "schema_path": config["typedb_schema"],
         }
     )
-    typedb.remove_nodes("entity=textdocument", allow_multiple=True)
-    typedb.remove_nodes("entity=person", allow_multiple=True)
+
     for node in nodes:
         typedb.store_node(node)
 
     return typedb
 
 
-# ---------------------------------------------------------
-# Summary
-# ---------------------------------------------------------
-
 def print_summary(metadata, sections, chunks):
-    print()
-    print("Pipeline summary")
+
+    print("\nPipeline summary")
     print("----------------")
     print(f"Document metadata: {metadata}")
     print(f"Sections extracted: {len(sections)}")
-    print(f"Chunks created:     {len(chunks)}")
+    print(f"Chunks created: {len(chunks)}")
 
-    for c in chunks[:17]:
+    for c in chunks[:10]:
         print("-" * 60)
         print(
             f"chunk_index={c.chunk_index} "
             f"section={c.metadata.get('section_title') if c.metadata else None}"
         )
-        print(
-            c.text[:300].replace("\n", " ")
-            + ("..." if len(c.text) > 300 else "")
-        )
+        print(c.text[:300].replace("\n", " "))
 
 
-# ---------------------------------------------------------
-# Main pipeline
-# ---------------------------------------------------------
+def main():
 
-def main() -> None:
     config = load_config()
 
-    pdf_path: Path = config["pdf_path"]
-
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found: {pdf_path.resolve()}")
-
-    # Parse document
-    doc, sections = parse_document(pdf_path)
-
-    # Metadata
-    metadata = extract_metadata(pdf_path, doc, config)
-
-    # Chunks
-    chunks = extract_chunks(
-        sections,
-        document_id=config["document_id"] or pdf_path.stem,
+    zot = ZoteroSource()
+    zot.connect(
+        {
+            "library_id": config["zotero_library_id"],
+            "library_type": "group",
+            "api_key": config["zotero_api_key"],
+        }
     )
 
-    # Embeddings
-    chunks = embed_chunks(chunks, config)
+    sync = PartialSync()
 
-    # Vector store
-    store_vectors(chunks)
+    last_sync = sync.start_sync("Zotero")
 
-    # Graph nodes
-    nodes = MetadataNodeExporter().export([metadata])
+    artifacts = zot.get_list_artefacts(last_synced=last_sync)
 
-    print(f"Generated {len(nodes)} nodes")
+    sync.finish_sync("Zotero", artifacts)
 
-    # Graph storage
-    typedb = store_graph(nodes, config)
+    metadata_items = zot.get_all_documents_metadata(
+        collection_id=config["zotero_collection_id"]
+    )
 
-    print(f"Stored {len(nodes)} nodes in TypeDB")
-    print("\nGenerated Nodes")
-    print_nodes(nodes)
+    for item in metadata_items:
 
-    # Summary
-    print_summary(metadata, sections, chunks)
+        item_key = item["key"]
 
-    # Retrieve nodes
+        zot.download_zotero_item(
+            item_id=item_key,
+            download_path=config["pdf_path"],
+        )
+
+        pdf_path = config["pdf_path"] / f"{item_key}.pdf"
+
+        if not pdf_path.exists():
+            continue
+
+        doc, sections = parse_document(pdf_path)
+
+        metadata = extract_metadata(pdf_path, doc, config, item)
+
+        chunks = extract_chunks(sections, document_id=item_key)
+
+        chunks = embed_chunks(chunks, config)
+
+        store_vectors(chunks)
+
+        nodes = MetadataNodeExporter().export([metadata])
+
+        typedb = store_graph(nodes, config)
+
+        print_nodes(nodes)
+
+        print_summary(metadata, sections, chunks)
+
     print("\nRetrieved nodes from TypeDB")
-    print("-----------------------------")
+
+    typedb = TypeDbDatastore()
+
+    typedb.connect(
+        {
+            "uri": config["typedb_uri"],
+            "database": config["typedb_database"],
+            "schema_path": config["typedb_schema"],
+        }
+    )
 
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
+
     print_nodes(retrieved)
 
 

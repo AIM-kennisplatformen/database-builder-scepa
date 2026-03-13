@@ -214,3 +214,8 @@ __marimo__/
 .lycheecache
 
 PDF_INPUT/
+
+*.db
+*.json
+
+.typedb-studio/

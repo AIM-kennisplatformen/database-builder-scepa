@@ -11,12 +11,14 @@ from typing import List, Tuple
 
 
 class TextStructureExtractor:
+    """Convert documents with Docling and extract structured sections."""
 
     def __init__(self) -> None:
         self._converter = VectorizeDocument()
 
-
     def convert(self, pdf_path: str) -> DoclingDocument:
+        """Convert a PDF file into a DoclingDocument."""
+
         path = Path(pdf_path)
 
         with path.open("rb") as f:
@@ -31,19 +33,24 @@ class TextStructureExtractor:
         self,
         doc: DoclingDocument,
     ) -> List[Tuple[str, str, List[DataFrame]]]:
+        """Extract sections with their text content and tables."""
 
         sections: List[Tuple[str, str, List[DataFrame]]] = []
 
         current_title = ""
-        buffer = ""
+        buffer: List[str] = []
         tables: List[DataFrame] = []
 
         def flush():
             nonlocal buffer, tables
-            text = buffer.strip()
-            if text:
-                sections.append((current_title, text, tables))
-            buffer = ""
+
+            if buffer:
+                text = "\n".join(buffer).strip()
+
+                if text:
+                    sections.append((current_title, text, tables))
+
+            buffer = []
             tables = []
 
         for nodeitem, _ in doc.iterate_items():
@@ -56,11 +63,12 @@ class TextStructureExtractor:
 
                 case TextItem(text=text):
                     cleaned = text.strip()
+
                     if cleaned:
-                        buffer += cleaned + "\n"
+                        buffer.append(cleaned)
 
                 case TableItem():
-                    tables.append(nodeitem.export_to_dataframe())
+                    tables.append(nodeitem.export_to_dataframe(doc=doc))
 
         flush()
         return sections

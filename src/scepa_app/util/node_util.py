@@ -15,19 +15,28 @@ def format_node(node: Node) -> str:
 
     if node.relations:
         lines.append("Relations:")
+
         for rel in node.relations:
             rel = cast(RelationData, rel)
+
             lines.append(f"  type: {rel['type']}")
 
+            # roles
             for role, ref in rel.get("roles", {}).items():
                 lines.append(
                     f"    {role} -> "
                     f"{ref['entity_type']}({ref['key_attr']}={ref['key']})"
                 )
+
+            # attributes
+            for attr, value in rel.get("attributes", {}).items():
+                lines.append(f"    {attr}: {value}")
+
     else:
         lines.append("Relations: none")
 
     return "\n".join(lines)
+
 
 def print_nodes(nodes: List[Node]):
     for node in nodes:

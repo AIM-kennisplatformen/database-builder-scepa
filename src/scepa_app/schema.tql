@@ -125,6 +125,10 @@ question sub attribute,
     value string,
     plays datacollection:queryattribute;
  
+publish sub relation,
+    relates publisher,
+    relates publication;
+
 attribution sub relation,
     abstract,
     owns function,
@@ -267,6 +271,8 @@ contributionrole sub relation,
         owns authorship-id @key,
         relates authoredwork as contributedto,
         relates author as contributor;
+        
+        first-authorship sub authorship; 
     
 component sub entity,
     abstract,
@@ -329,7 +335,8 @@ textdocument sub entity,
     owns namelike-title,
     owns publishingdate,
     plays attribution:attributedthing,
-    plays authorship:authoredwork;
+    plays authorship:authoredwork,
+    plays publish:publication;
     
     scientificjournalarticle sub textdocument;
     book sub textdocument;
@@ -372,7 +379,8 @@ institution sub entity,
             
         munincipality sub governinginstitution;
     
-    publishinginstitution sub  institution;
+    publishinginstitution sub  institution,
+        plays publish:publisher;
 
 person sub entity,
     owns address-email,
