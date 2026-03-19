@@ -96,6 +96,7 @@ attribute question,
 # ----------------- RELATIONS -----------------
 
 relation attribution @abstract,
+    owns function,
     relates attributedthing,
     relates attributedto,
     relates preselectedinformation;
@@ -229,6 +230,12 @@ relation authorship sub contributionrole,
     relates authoredwork as contributedto,
     relates author as contributor;
     
+relation first-authorship sub authorship;
+
+relation publish,
+    relates publisher,
+    relates publication;
+
 # ----------------- ENTITIES -----------------
 
 entity component @abstract,
@@ -286,7 +293,8 @@ entity textdocument,
     owns namelike-title,
     owns publishingdate,
     plays attribution:attributedthing,
-    plays authorship:authoredwork;
+    plays authorship:authoredwork,
+    plays publish:publication;
     
 entity scientificjournalarticle sub textdocument;
 entity book sub textdocument;
@@ -308,12 +316,14 @@ entity institution @abstract,
     owns namelike-name,
     plays attribution:attributedto,
     plays composition-organizational:overarchingunit,
+    plays composition-organizational:organizationalunit,
     plays employment:employs,
+    plays funding-external:recipient-institute,
     plays funding-external:subsidyprovider,
     plays projectpartnership:leadpartner,
     plays projectpartnership:partner;
     
-entity knowledgeinstitution sub institution;
+entity knowledgeinstitution sub institution @abstract;
 entity researchuniversity sub knowledgeinstitution;
 entity universityofappliedsciences sub knowledgeinstitution;
         
@@ -323,7 +333,8 @@ entity nongovernmentalinstitution sub institution;
 entity governinginstitution sub institution;
 entity munincipality sub governinginstitution;
     
-entity publishinginstitution sub institution;
+entity publishinginstitution sub institution,
+    plays publish:publisher;
 
 entity person,
     owns address-email,
