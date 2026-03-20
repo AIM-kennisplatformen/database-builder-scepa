@@ -93,6 +93,9 @@ attribute querycode,
 attribute question,
     value string;
  
+attribute summary,
+    value string;
+
 # ----------------- RELATIONS -----------------
 
 relation attribution @abstract,
@@ -292,6 +295,7 @@ entity textdocument,
     owns hashvalue @key,
     owns namelike-title,
     owns publishingdate,
+    owns summary,
     plays attribution:attributedthing,
     plays authorship:authoredwork,
     plays publish:publication;
