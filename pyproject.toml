@@ -15,7 +15,7 @@ dependencies = [
     "torchvision",
     "testcontainers",
     "qdrant-client"
-, "docling>=2.73.0,<3", "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git", "span-marker>=1.7.0,<2", "openai>=2.24.0,<3", "pypdf>=6.7.3,<7"]
+, "docling>=2.73.0,<3", "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git@typedb_v3", "span-marker>=1.7.0,<2", "openai>=2.24.0,<3", "pypdf>=6.7.3,<7"]
 
 [dependency-groups]
 dev = [
