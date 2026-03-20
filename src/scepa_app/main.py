@@ -7,15 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
-from .document_parsing.extraction.extract_text_chunks import TextChunkExtractor
-from .document_parsing.extraction.extract_text_structure import TextStructureExtractor
-from .document_parsing.extraction.extract_text_metadata import TextMetadataExtractor
-from .document_parsing.extraction.extract_text_metadata_zotero import ZoteroMetadataExtractor
-
-from .document_parsing.embedding.embed_chunks import ChunkEmbedder
-from .document_parsing.embedding.openai_embedding_model import OpenAICompatibleEmbeddingModel
+from .document_parsing.extract_text_metadata import TextMetadataExtractor
+from .document_parsing.extract_text_metadata_zotero import ZoteroMetadataExtractor
 
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.node_util import print_nodes
@@ -24,6 +18,9 @@ from .util.partial_sync import PartialSync
 from database_builder_libs.sources.zotero_source import ZoteroSource
 from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
 from database_builder_libs.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
+from database_builder_libs.utility.extract.document_parser_docling import DocumentParserDocling, ParsedDocument
+from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
+from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
 
 load_dotenv()
 
@@ -50,24 +47,17 @@ def load_config() -> dict:
     }
 
 
-def parse_document(pdf_path: Path):
-    extractor = TextStructureExtractor()
-    doc = extractor.convert(str(pdf_path))
-    sections = extractor.extract_sections(doc)
-    return doc, sections
+def parse_document(pdf_path: Path) -> ParsedDocument:
+    return DocumentParserDocling().parse(str(pdf_path))
 
 
-def extract_metadata(pdf_path: Path, doc, config: dict, zotero_item: dict[str, Any]):
+def extract_metadata(pdf_path: Path, doc: ParsedDocument, config: dict, zotero_item: dict[str, Any]):
+    from openai import OpenAI
 
     zotero_meta = ZoteroMetadataExtractor().extract(zotero_entry=zotero_item)
 
-    openai_client = OpenAI(
-        base_url=config["openai_host"],
-        api_key=config["openai_key"],
-    )
-
     extractor = TextMetadataExtractor(
-        llm_client=openai_client,
+        llm_client=OpenAI(base_url=config["openai_host"], api_key=config["openai_key"]),
         llm_model="google/gemma-2-9b-it-fast",
     )
 
@@ -78,27 +68,24 @@ def extract_metadata(pdf_path: Path, doc, config: dict, zotero_item: dict[str, A
     )
 
 
-def extract_chunks(sections, document_id: str):
-    return TextChunkExtractor().extract_chunks(sections, document_id=document_id)
+def extract_chunks(doc: ParsedDocument, document_id: str, summary: str | None = None):
+    return SummaryAndSectionsStrategy().chunk(
+        doc.sections,
+        document_id=document_id,
+        summary=summary,
+    )
 
 
 def embed_chunks(chunks, config):
-
-    embedder = ChunkEmbedder(
-        OpenAICompatibleEmbeddingModel(
-            base_url=config["openai_host"],
-            api_key=config["openai_key"],
-            model=config["embedding_model"],
-        )
-    )
-
-    return embedder.embed(chunks)
+    return OpenAICompatibleChunkEmbedder(
+        base_url=config["openai_host"],
+        api_key=config["openai_key"],
+        model=config["embedding_model"],
+    ).embed(chunks)
 
 
 def store_vectors(chunks):
-
     qdrant = QdrantDatastore()
-
     qdrant.connect(
         {
             "url": "http://localhost:6333",
@@ -106,14 +93,11 @@ def store_vectors(chunks):
             "vector_size": 4096,
         }
     )
-
     qdrant.store_chunks(chunks)
 
 
 def store_graph(nodes, config):
-
     typedb = TypeDbDatastore()
-
     typedb.connect(
         {
             "uri": config["typedb_uri"],
@@ -121,15 +105,12 @@ def store_graph(nodes, config):
             "schema_path": config["typedb_schema"],
         }
     )
-
     for node in nodes:
         typedb.store_node(node)
-
     return typedb
 
 
 def print_summary(metadata, sections, chunks):
-
     print("\nPipeline summary")
     print("----------------")
     print(f"Document metadata: {metadata}")
@@ -146,7 +127,6 @@ def print_summary(metadata, sections, chunks):
 
 
 def main():
-
     config = load_config()
 
     zot = ZoteroSource()
@@ -159,23 +139,17 @@ def main():
     )
 
     sync = PartialSync()
-
     last_sync = sync.start_sync("Zotero")
-
-    last_sync_dt = (
-        datetime.fromtimestamp(last_sync) if last_sync is not None else None
-    )
+    last_sync_dt = datetime.fromtimestamp(last_sync) if last_sync is not None else None
 
     artifacts = zot.get_list_artefacts(last_synced=last_sync_dt)
-
     sync.finish_sync("Zotero", artifacts)
 
     metadata_items = zot.get_all_documents_metadata(
         collection_id=config["zotero_collection_id"]
     )
 
-    for item in metadata_items:
-
+    for item in metadata_items[:5]:
         item_key = item["key"]
 
         zot.download_zotero_item(
@@ -188,11 +162,11 @@ def main():
         if not pdf_path.exists():
             continue
 
-        doc, sections = parse_document(pdf_path)
+        doc = parse_document(pdf_path)
 
         metadata = extract_metadata(pdf_path, doc, config, item)
 
-        chunks = extract_chunks(sections, document_id=item_key)
+        chunks = extract_chunks(doc, document_id=item_key, summary=metadata.summary)
 
         chunks = embed_chunks(chunks, config)
 
@@ -204,12 +178,11 @@ def main():
 
         print_nodes(nodes)
 
-        print_summary(metadata, sections, chunks)
+        print_summary(metadata, doc.sections, chunks)
 
     print("\nRetrieved nodes from TypeDB")
 
     typedb = TypeDbDatastore()
-
     typedb.connect(
         {
             "uri": config["typedb_uri"],
@@ -219,7 +192,6 @@ def main():
     )
 
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
-
     print_nodes(retrieved)
 
 
