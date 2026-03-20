@@ -4,10 +4,11 @@ from typing import Optional, List
 import json
 import re
 
-from docling_core.types.doc import DoclingDocument, SectionHeaderItem, TextItem
+from docling_core.types.doc import SectionHeaderItem, TextItem
 from pypdf import PdfReader
 
 from .text_metadata import TextMetadata, Acknowledgement
+from database_builder_libs.utility.extract.document_parser_docling import ParsedDocument
 
 
 class TextMetadataExtractor:
@@ -28,11 +29,9 @@ class TextMetadataExtractor:
         self,
         *,
         pdf_path: str,
-        doc: DoclingDocument,
+        doc: ParsedDocument,
         meta: Optional[TextMetadata] = None,
     ) -> TextMetadata:
-        """Extract metadata from a PDF and structured document."""
-
         meta = meta or TextMetadata(source={})
 
         if meta.source is None:
@@ -40,10 +39,10 @@ class TextMetadataExtractor:
 
         self._fill_from_pdf_metadata(meta, pdf_path)
 
-        lines = self._first_lines(doc, limit=120)
+        lines = self._first_lines(doc.doc, limit=120)
 
         if meta.title is None:
-            title = self._first_section_header(doc) or self._first_reasonable_line(lines)
+            title = self._first_section_header(doc.doc) or self._first_reasonable_line(lines)
 
             if title:
                 meta.title = title
@@ -61,7 +60,7 @@ class TextMetadataExtractor:
                 meta.source.setdefault("acknowledgements", "llm")
 
         if meta.summary is None:
-            summary = self._find_summary(doc)
+            summary = self._find_summary(doc.doc)
 
             if summary:
                 meta.summary = summary
@@ -77,7 +76,7 @@ class TextMetadataExtractor:
                     break
 
         return meta
-
+    
     def _fill_from_pdf_metadata(self, meta: TextMetadata, pdf_path: str):
         """Populate metadata fields from embedded PDF metadata."""
 

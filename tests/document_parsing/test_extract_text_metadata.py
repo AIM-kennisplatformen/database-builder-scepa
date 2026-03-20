@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from scepa_app.document_parsing.extraction.extract_text_metadata import (
+from scepa_app.document_parsing.extract_text_metadata import (
     TextMetadataExtractor,
     TextMetadata,
     Acknowledgement,
@@ -29,7 +29,7 @@ class FakeText:
         self.text = text
 
 
-PATCH_PATH = "scepa_app.document_parsing.extraction.extract_text_metadata"
+PATCH_PATH = "scepa_app.document_parsing.extract_text_metadata"
 
 
 def patch_docling():
