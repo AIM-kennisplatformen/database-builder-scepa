@@ -1,6 +1,6 @@
 from typing import List, cast
 from database_builder_libs.models.node import Node
-from database_builder_libs.stores.typedb_v2.typedb_v2_store import RelationData
+from database_builder_libs.stores.typedb.typedb_store import RelationData
 
 def format_node(node: Node) -> str:
     lines = []
