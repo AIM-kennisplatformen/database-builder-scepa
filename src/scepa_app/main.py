@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
 
+import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,10 +20,11 @@ from .util.partial_sync import PartialSync
 
 from database_builder_libs.sources.zotero_source import ZoteroSource
 from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
-from database_builder_libs.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
+from database_builder_libs.stores.typedb.typedb_store import TypeDbDatastore
 from database_builder_libs.utility.extract.document_parser_docling import DocumentParserDocling, ParsedDocument
 from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
 from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
+from database_builder_libs.models.node import EntityType, KeyAttribute, Node, NodeId
 
 load_dotenv()
 
@@ -45,6 +49,30 @@ def load_config() -> dict:
         "zotero_api_key": require_env("ZOTERO_API_KEY"),
         "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
     }
+
+
+def dump_nodes(nodes: list[Node], path: Path) -> None:
+    """Serialize nodes to a JSON file for later replay."""
+    data = [asdict(node) for node in nodes]
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"Dumped {len(nodes)} nodes to {path}")
+
+
+def load_nodes(path: Path) -> list[Node]:
+    """Deserialize nodes from a previously dumped JSON file."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    nodes = [
+        Node(
+            id=NodeId(item["id"]),
+            payload_data=item.get("payload_data", {}),
+            relations=item.get("relations", []),
+            entity_type=EntityType(item.get("entity_type", "node")),
+            key_attribute=KeyAttribute(item.get("key_attribute", "id")),
+        )
+        for item in data
+    ]
+    print(f"Loaded {len(nodes)} nodes from {path}")
+    return nodes
 
 
 def parse_document(pdf_path: Path) -> ParsedDocument:
@@ -101,6 +129,8 @@ def store_graph(nodes, config):
     typedb.connect(
         {
             "uri": config["typedb_uri"],
+            "username": "admin",
+            "password": "password",
             "database": config["typedb_database"],
             "schema_path": config["typedb_schema"],
         }
@@ -124,6 +154,13 @@ def print_summary(metadata, sections, chunks):
             f"section={c.metadata.get('section_title') if c.metadata else None}"
         )
         print(c.text[:300].replace("\n", " "))
+
+
+def replay_nodes(json_path: Path, config: dict) -> None:
+    """Load dumped nodes from disk and store them into TypeDB."""
+    nodes = load_nodes(json_path)
+    store_graph(nodes, config)
+    print_nodes(nodes)
 
 
 def main():
@@ -174,6 +211,8 @@ def main():
 
         nodes = MetadataNodeExporter().export([metadata])
 
+        dump_nodes(nodes, config["pdf_path"] / f"{item_key}_nodes.json")
+
         typedb = store_graph(nodes, config)
 
         print_nodes(nodes)
@@ -186,6 +225,8 @@ def main():
     typedb.connect(
         {
             "uri": config["typedb_uri"],
+            "username": "admin",
+            "password": "password",
             "database": config["typedb_database"],
             "schema_path": config["typedb_schema"],
         }
@@ -196,4 +237,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 3 and sys.argv[1] == "--load":
+        replay_nodes(Path(sys.argv[2]), load_config())
+    else:
+        main()

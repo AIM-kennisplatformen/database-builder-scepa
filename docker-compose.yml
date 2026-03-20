@@ -1,19 +1,20 @@
 services:
   typedb:
-    image: vaticle/typedb:2.29.1
-    container_name: knowledgeplatform-typedb
+    image: typedb/typedb:3.8.1
+    container_name: knowledgeplatform-typedb-v3
     ports:
       - "1729:1729"
+      - "8000:8000"
     restart: unless-stopped
     volumes:
-      - typedb_data:/typedb-all-linux/server/data
+      - typedb_data:/opt/typedb-all-linux/server/data
 
   qdrant:
     image: qdrant/qdrant:latest
     container_name: knowledgeplatform-qdrant
     ports:
-      - "6333:6333"   # REST API
-      - "6334:6334"   # gRPC API
+      - "6333:6333"
+      - "6334:6334"
     restart: unless-stopped
     volumes:
       - qdrant_storage:/qdrant/storage
