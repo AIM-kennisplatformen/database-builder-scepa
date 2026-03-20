@@ -10,7 +10,7 @@ from database_builder_libs.models.node import (
     KeyAttribute,
 )
 
-from ..document_parsing.extraction.text_metadata import TextMetadata
+from ..document_parsing.text_metadata import TextMetadata
 
 
 class MetadataNodeExporter:
