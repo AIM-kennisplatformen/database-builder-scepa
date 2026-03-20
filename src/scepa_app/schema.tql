@@ -93,12 +93,9 @@ attribute querycode,
 attribute question,
     value string;
  
-publish sub relation,
-    relates publisher,
-    relates publication;
+# ----------------- RELATIONS -----------------
 
-attribution sub relation,
-    abstract,
+relation attribution @abstract,
     owns function,
     relates attributedthing,
     relates attributedto,
@@ -228,12 +225,10 @@ relation leadingmanagement sub projectrole,
 relation internalleadingmanagement sub leadingmanagement,
     relates leadingmanagingcomponent as leadingmanagingpartner;
         
-    authorship sub contributionrole,
-        owns authorship-id @key,
-        relates authoredwork as contributedto,
-        relates author as contributor;
-        
-        first-authorship sub authorship; 
+relation authorship sub contributionrole,
+    owns authorship-id @key,
+    relates authoredwork as contributedto,
+    relates author as contributor;
     
 relation first-authorship sub authorship;
 
@@ -327,21 +322,13 @@ entity institution @abstract,
     plays funding-external:subsidyprovider,
     plays projectpartnership:leadpartner,
     plays projectpartnership:partner;
-
-    knowledgeinstitution sub institution,
-        abstract;
-        researchuniversity sub knowledgeinstitution;
-        universityofappliedsciences sub knowledgeinstitution;
-        
-    semigovernmentalinstitution sub institution;
-    nongovernmentalinstitution sub institution;
-    governinginstitution sub institution,
-        abstract;
-            
-        munincipality sub governinginstitution;
     
-    publishinginstitution sub  institution,
-        plays publish:publisher;
+entity knowledgeinstitution sub institution @abstract;
+entity researchuniversity sub knowledgeinstitution;
+entity universityofappliedsciences sub knowledgeinstitution;
+        
+entity semigovernmentalinstitution sub institution;
+entity nongovernmentalinstitution sub institution;
 
 entity governinginstitution sub institution;
 entity munincipality sub governinginstitution;
