@@ -223,7 +223,7 @@ def build_zotero_source(config: dict) -> ZoteroSource:
 def build_qdrant() -> QdrantDatastore:
     store = QdrantDatastore()
     store.connect({
-        "url":         "http://localhost:6333",
+        "url":         "http://dbscepadev.mads-han.src.surf-hosted.nl:6333",
         "collection":  "knowledge_base",
         "vector_size": 4096,
     })
