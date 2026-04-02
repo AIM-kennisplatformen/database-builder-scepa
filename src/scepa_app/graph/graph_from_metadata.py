@@ -43,7 +43,7 @@ class MetadataNodeExporter:
     # MAIN EXPORT
     # ─────────────────────────────────────────────
 
-    def export(self, content_list: Iterable[Content]) -> List[Node]:
+    def export(self, content_list: Iterable[Content], doc_hash: str | None = None) -> List[Node]:
 
         nodes: Dict[str, Node] = {}
 
@@ -51,7 +51,9 @@ class MetadataNodeExporter:
 
             meta: dict[str, Any] = content.content.get("metadata", {})
 
-            doc_hash = self._hash(meta)
+            # Use provided hash or compute from metadata
+            if doc_hash is None:
+                doc_hash = self._hash(meta)
             relations = []
 
             # ───────── AUTHORS

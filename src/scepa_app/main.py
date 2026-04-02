@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
@@ -281,8 +282,8 @@ def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
     qdrant.store_chunks(chunks)
 
 
-def store_graph(content: Content, typedb: TypeDbDatastore) -> list:
-    nodes = MetadataNodeExporter().export([content])
+def store_graph(content: Content, typedb: TypeDbDatastore, doc_hash: str | None = None) -> list:
+    nodes = MetadataNodeExporter().export([content], doc_hash=doc_hash)
     for node in nodes:
         typedb.store_node(node)
     return nodes
@@ -363,11 +364,25 @@ def main() -> None:
 
         # 3. Overlay Zotero metadata on top of whatever PDFSource produced
         content = merge_zotero_into_content(contents[0], zotero_fields)
-        chunks  = [Chunk(**c) for c in content.content["chunks"]]
+        
+        # Compute document hash for traceability
+        meta = content.content.get("metadata", {})
+        doc_hash = hashlib.sha256("|".join([
+            meta.get("title") or "",
+            ",".join(meta.get("authors") or []),
+            meta.get("summary") or "",
+        ]).encode()).hexdigest()
+        
+        # Add document_hash to chunk metadata for traceability
+        chunks = []
+        for c in content.content["chunks"]:
+            c["metadata"] = c.get("metadata") or {}
+            c["metadata"]["document_hash"] = doc_hash
+            chunks.append(Chunk(**c))
 
         # 4. Store
         store_vectors(chunks, qdrant)
-        nodes = store_graph(content, typedb)
+        nodes = store_graph(content, typedb, doc_hash=doc_hash)
 
         # 5. Report
         print_nodes(nodes)
