@@ -51,6 +51,8 @@ def load_config() -> dict:
         "typedb_uri":           require_env("TYPEDB_URI"),
         "typedb_database":      require_env("TYPEDB_DATABASE"),
         "typedb_schema":        require_env("TYPEDB_SCHEMA_PATH"),
+        "typedb_username":      require_env("TYPEDB_USER"),
+        "typedb_password":      require_env("TYPEDB_PASSWORD"),
         "zotero_library_id":    require_env("ZOTERO_LIBRARY_ID"),
         "zotero_api_key":       require_env("ZOTERO_API_KEY"),
         "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
@@ -216,7 +218,7 @@ def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
         "folder_path":  str(config["pdf_path"]),
         "llm_base_url": config["openai_host"],
         "llm_api_key":  config["openai_key"],
-        "llm_model":    "google/gemma-2-9b-it-fast",
+        "llm_model":    "openai/gpt-oss-120b",
 
         "title": FieldExtractionConfig(enabled=False) if zotero_fields["title"] else
             FieldExtractionConfig(
@@ -277,11 +279,23 @@ def build_zotero_source(config: dict) -> ZoteroSource:
     return src
 
 
+def build_qdrant_summaries(config: dict) -> QdrantDatastore:
+    store = QdrantDatastore()
+    store.connect({
+        "url":         "https://dbscepadev.mads-han.src.surf-hosted.nl:6333",
+        "collection":  "document_summaries",
+        "enable_tls":  True,
+        "api_key":     config["qdrant_api_key"],
+        "vector_size": 4096,
+    })
+    return store
+
 def build_qdrant(config: dict) -> QdrantDatastore:
     store = QdrantDatastore()
     store.connect({
         "url":         "https://dbscepadev.mads-han.src.surf-hosted.nl:6333",
         "collection":  "knowledge_base",
+        "enable_tls":  True,
         "api_key":     config["qdrant_api_key"],
         "vector_size": 4096,
     })
@@ -294,7 +308,7 @@ def build_typedb(config: dict) -> TypeDbDatastore:
         {
             "uri": config["typedb_uri"],
             "username": "admin",
-            "password": "",
+            "password": config["typedb_password"],
             "database": config["typedb_database"],
             "schema_path": config["typedb_schema"],
             "tls": True
@@ -336,6 +350,29 @@ def merge_zotero_into_content(
 # --------------------------------------------------------------------------- #
 # Storage                                                                      #
 # --------------------------------------------------------------------------- #
+def store_summary(content: Content, qdrant: QdrantDatastore, embedder: OpenAICompatibleChunkEmbedder, doc_hash: str | None = None) -> None:
+    """Embed the document summary and store it as a single vector in the summaries collection."""
+    meta = content.content.get("metadata", {})
+    summary_text = meta.get("summary")
+    if not summary_text:
+        print("[skip] No summary available to store.")
+        return
+
+    summary_chunk = Chunk(
+        document_id=doc_hash or content.id_,
+        text=summary_text,
+        chunk_index=0,
+        vector=(),
+        metadata={
+            "type":          "document_summary",
+            "title":         meta.get("title"),
+            "authors":       meta.get("authors"),
+            "document_hash": doc_hash,
+        },
+    )
+
+    embedded = embedder.embed([summary_chunk])
+    qdrant.store_chunks(embedded)
 
 def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
     qdrant.store_chunks(chunks)
@@ -391,6 +428,7 @@ def main() -> None:
     config = load_config()
     zot    = build_zotero_source(config)
     qdrant = build_qdrant(config)
+    qdrant_summaries = build_qdrant_summaries(config) 
     typedb = build_typedb(config)
 
     # Track documents that failed processing
@@ -459,6 +497,16 @@ def main() -> None:
 
             # 4. Store
             store_vectors(chunks, qdrant)
+            store_summary(                            
+                content,
+                qdrant_summaries,
+                embedder=OpenAICompatibleChunkEmbedder(
+                    base_url=config["openai_host"],
+                    api_key=config["openai_key"],
+                    model=config["embedding_model"],
+                ),
+                doc_hash=doc_hash,
+            )
             nodes = store_graph(content, typedb, doc_hash=doc_hash)
 
             # 5. Report
