@@ -474,7 +474,7 @@ def main() -> None:
             })
             print(f"\n[ERROR] Failed to process document {item_key}")
             print(f"  Error: {error_msg}")
-            print(f"  Continuing with next document...\n")
+            print("  Continuing with next document...\n")
             continue
 
     # ── Read-back from TypeDB ─────────────────────────────────────────────────
