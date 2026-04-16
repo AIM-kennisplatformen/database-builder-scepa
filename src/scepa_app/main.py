@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -53,7 +54,63 @@ def load_config() -> dict:
         "zotero_library_id":    require_env("ZOTERO_LIBRARY_ID"),
         "zotero_api_key":       require_env("ZOTERO_API_KEY"),
         "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
+        "qdrant_api_key":       require_env("QDRANT_API_KEY"),
     }
+
+
+# --------------------------------------------------------------------------- #
+# Metadata sanitization helpers                                               #
+# --------------------------------------------------------------------------- #
+
+def strip_html_tags(text: str | None) -> str | None:
+    """Remove HTML/XML tags from text, preserving content."""
+    if not text:
+        return text
+    # Remove HTML/XML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Decode common HTML entities
+    text = text.replace("&lt;", "<").replace("&gt;", ">")
+    text = text.replace("&amp;", "&").replace("&quot;", '"')
+    text = text.replace("&apos;", "'")
+    return text.strip() if text else None
+
+
+def escape_typeql_string(text: str | None) -> str | None:
+    """Escape special characters for TypeQL string literals."""
+    if not text:
+        return text
+    # Escape backslashes first, then quotes
+    text = text.replace("\\", "\\\\")
+    text = text.replace('"', '\\"')
+    return text
+
+
+def sanitize_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    """
+    Sanitize metadata fields for TypeDB storage.
+    - Strips HTML/XML tags from all string fields
+    - Escapes special characters for TypeQL
+    - Removes None values to avoid null checks
+    """
+    sanitized = {}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        
+        if isinstance(value, str):
+            value = strip_html_tags(value)
+            value = escape_typeql_string(value)
+        elif isinstance(value, list) and value and isinstance(value[0], str):
+            # Handle list of strings (e.g., authors, keywords)
+            value = [
+                escape_typeql_string(strip_html_tags(v))
+                for v in value
+            ]
+        
+        if value:  # Only include non-empty values
+            sanitized[key] = value
+    
+    return sanitized
 
 
 # --------------------------------------------------------------------------- #
@@ -220,11 +277,12 @@ def build_zotero_source(config: dict) -> ZoteroSource:
     return src
 
 
-def build_qdrant() -> QdrantDatastore:
+def build_qdrant(config: dict) -> QdrantDatastore:
     store = QdrantDatastore()
     store.connect({
-        "url":         "http://localhost:6333",
+        "url":         "https://dbscepadev.mads-han.src.surf-hosted.nl:6333",
         "collection":  "knowledge_base",
+        "api_key":     config["qdrant_api_key"],
         "vector_size": 4096,
     })
     return store
@@ -236,9 +294,10 @@ def build_typedb(config: dict) -> TypeDbDatastore:
         {
             "uri": config["typedb_uri"],
             "username": "admin",
-            "password": "password",
+            "password": "",
             "database": config["typedb_database"],
             "schema_path": config["typedb_schema"],
+            "tls": True
         }
     )
     return store
@@ -283,7 +342,21 @@ def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
 
 
 def store_graph(content: Content, typedb: TypeDbDatastore, doc_hash: str | None = None) -> list:
-    nodes = MetadataNodeExporter().export([content], doc_hash=doc_hash)
+    """
+    Store content graph in TypeDB with sanitized metadata.
+    """
+    # Sanitize metadata before export to prevent TypeQL syntax errors
+    meta = content.content.get("metadata", {})
+    sanitized_meta = sanitize_metadata(meta)
+    
+    # Update content with sanitized metadata
+    content_copy = Content(
+        date=content.date,
+        id_=content.id_,
+        content={**content.content, "metadata": sanitized_meta}
+    )
+    
+    nodes = MetadataNodeExporter().export([content_copy], doc_hash=doc_hash)
     for node in nodes:
         typedb.store_node(node)
     return nodes
@@ -317,8 +390,11 @@ def print_summary(content: Content, chunks: list[Chunk]) -> None:
 def main() -> None:
     config = load_config()
     zot    = build_zotero_source(config)
-    qdrant = build_qdrant()
+    qdrant = build_qdrant(config)
     typedb = build_typedb(config)
+
+    # Track documents that failed processing
+    failed_documents = []
 
     # ── Incremental sync cursor ───────────────────────────────────────────────
     sync         = PartialSync()
@@ -329,7 +405,7 @@ def main() -> None:
     sync.finish_sync("Zotero", artefacts)
 
     # ── Fetch Zotero Content objects (metadata + stable IDs) ─────────────────
-    zotero_contents = zot.get_content(artefacts[:5])
+    zotero_contents = zot.get_content(artefacts)
 
     for zotero_content in zotero_contents:
         item_key      = zotero_content.id_
@@ -340,58 +416,81 @@ def main() -> None:
             + (", ".join(k for k, v in zotero_fields.items() if v is not None) or "nothing")
         )
 
-        # 1. Download PDF from Zotero
-        zot.download_zotero_item(
-            item_id=item_key,
-            download_path=config["pdf_path"],
-        )
+        try:
+            # 1. Download PDF from Zotero
+            zot.download_zotero_item(
+                item_id=item_key,
+                download_path=config["pdf_path"],
+            )
 
-        pdf_path = config["pdf_path"] / f"{item_key}.pdf"
-        if not pdf_path.exists():
-            print(f"[skip] No PDF downloaded for {item_key}")
+            pdf_path = config["pdf_path"] / f"{item_key}.pdf"
+            if not pdf_path.exists():
+                print(f"[skip] No PDF downloaded for {item_key}")
+                continue
+
+            # 2. Build a PDFSource configured for this document's specific gaps,
+            #    then parse + chunk + embed
+            pdf_src  = build_pdf_source(config, zotero_fields)
+            contents = pdf_src.get_content([
+                (pdf_path.name, datetime.fromtimestamp(pdf_path.stat().st_mtime))
+            ])
+
+            if not contents:
+                print(f"[skip] PDFSource produced no content for {item_key}")
+                continue
+
+            # 3. Overlay Zotero metadata on top of whatever PDFSource produced
+            content = merge_zotero_into_content(contents[0], zotero_fields)
+            
+            # Compute document hash for traceability
+            meta = content.content.get("metadata", {})
+            doc_hash = hashlib.sha256("|".join([
+                meta.get("title") or "",
+                ",".join(meta.get("authors") or []),
+                meta.get("summary") or "",
+            ]).encode()).hexdigest()
+            
+            # Add document_hash to chunk metadata for traceability
+            chunks = []
+            for c in content.content["chunks"]:
+                c["metadata"] = c.get("metadata") or {}
+                c["metadata"]["document_hash"] = doc_hash
+                chunks.append(Chunk(**c))
+
+            # 4. Store
+            store_vectors(chunks, qdrant)
+            nodes = store_graph(content, typedb, doc_hash=doc_hash)
+
+            # 5. Report
+            print_nodes(nodes)
+            print_summary(content, chunks)
+
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            failed_documents.append({
+                "item_key": item_key,
+                "title": zotero_fields.get("title") or "Unknown",
+                "error": error_msg,
+            })
+            print(f"\n[ERROR] Failed to process document {item_key}")
+            print(f"  Error: {error_msg}")
+            print("  Continuing with next document...\n")
             continue
-
-        # 2. Build a PDFSource configured for this document's specific gaps,
-        #    then parse + chunk + embed
-        pdf_src  = build_pdf_source(config, zotero_fields)
-        contents = pdf_src.get_content([
-            (pdf_path.name, datetime.fromtimestamp(pdf_path.stat().st_mtime))
-        ])
-
-        if not contents:
-            print(f"[skip] PDFSource produced no content for {item_key}")
-            continue
-
-        # 3. Overlay Zotero metadata on top of whatever PDFSource produced
-        content = merge_zotero_into_content(contents[0], zotero_fields)
-        
-        # Compute document hash for traceability
-        meta = content.content.get("metadata", {})
-        doc_hash = hashlib.sha256("|".join([
-            meta.get("title") or "",
-            ",".join(meta.get("authors") or []),
-            meta.get("summary") or "",
-        ]).encode()).hexdigest()
-        
-        # Add document_hash to chunk metadata for traceability
-        chunks = []
-        for c in content.content["chunks"]:
-            c["metadata"] = c.get("metadata") or {}
-            c["metadata"]["document_hash"] = doc_hash
-            chunks.append(Chunk(**c))
-
-        # 4. Store
-        store_vectors(chunks, qdrant)
-        nodes = store_graph(content, typedb, doc_hash=doc_hash)
-
-        # 5. Report
-        print_nodes(nodes)
-        print_summary(content, chunks)
 
     # ── Read-back from TypeDB ─────────────────────────────────────────────────
     print("\nRetrieved nodes from TypeDB")
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
     print_nodes(retrieved)
+
+    # ── Report failed documents ───────────────────────────────────────────────
+    if failed_documents:
+        print("\n" + "=" * 80)
+        print(f"⚠️  WARNING: {len(failed_documents)} document(s) failed to process")
+        print("=" * 80)
+        for doc in failed_documents:
+            print(f"\n[{doc['item_key']}] {doc['title']}")
+            print(f"  Error: {doc['error']}")
+        print("\n" + "=" * 80)
 
 
 if __name__ == "__main__":
