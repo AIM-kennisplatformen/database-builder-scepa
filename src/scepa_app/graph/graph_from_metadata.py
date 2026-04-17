@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable, List, Dict
+from typing import Iterable, List, Dict, Any
 
 from database_builder_libs.models.node import (
     Node,
@@ -10,7 +10,7 @@ from database_builder_libs.models.node import (
     KeyAttribute,
 )
 
-from ..document_parsing.text_metadata import TextMetadata
+from database_builder_libs.models.abstract_source import Content
 
 
 class MetadataNodeExporter:
@@ -43,18 +43,22 @@ class MetadataNodeExporter:
     # MAIN EXPORT
     # ─────────────────────────────────────────────
 
-    def export(self, metadata_list: Iterable[TextMetadata]) -> List[Node]:
+    def export(self, content_list: Iterable[Content], doc_hash: str | None = None) -> List[Node]:
 
         nodes: Dict[str, Node] = {}
 
-        for meta in metadata_list:
+        for content in content_list:
 
-            doc_hash = self._hash(meta)
+            meta: dict[str, Any] = content.content.get("metadata", {})
+
+            # Use provided hash or compute from metadata
+            if doc_hash is None:
+                doc_hash = self._hash(meta)
             relations = []
 
             # ───────── AUTHORS
 
-            for author in meta.authors or []:
+            for author in meta.get("authors") or []:
 
                 key = self._person_key(author)
                 nodes.setdefault(key, self._person_node(author))
@@ -82,14 +86,16 @@ class MetadataNodeExporter:
 
             # ───────── ACKNOWLEDGEMENTS
 
-            for ack in meta.acknowledgements or []:
+            for ack in meta.get("acknowledgements") or []:
 
-                if self._is_noise(ack.name):
+                name = ack.get("name", "")
+
+                if self._is_noise(name):
                     continue
 
                 nodes.setdefault(
-                    ack.name,
-                    self._institution_node(ack.name)
+                    name,
+                    self._institution_node(name)
                 )
 
                 relations.append({
@@ -98,7 +104,7 @@ class MetadataNodeExporter:
                         "attributedto": {
                             "entity_type": "publishinginstitution",
                             "key_attr": "namelike-name",
-                            "key": ack.name,
+                            "key": name,
                         },
                         "attributedthing": {
                             "entity_type": "textdocument",
@@ -107,7 +113,7 @@ class MetadataNodeExporter:
                         },
                     },
                     "attributes": {
-                        "function": ack.relation
+                        "function": ack.get("relation")
                     }
                 })
 
@@ -116,7 +122,7 @@ class MetadataNodeExporter:
             doc_type = None
             semantic_functions = set()
 
-            for tag in meta.keywords or []:
+            for tag in meta.get("keywords") or []:
 
                 t = self._normalize(tag)
 
@@ -151,10 +157,10 @@ class MetadataNodeExporter:
 
             if doc_type is None:
 
-                if meta.keywords:
+                if meta.get("keywords"):
                     doc_type = "discriminatingconcept-bol-scientific"
 
-                elif meta.acknowledgements:
+                elif meta.get("acknowledgements"):
                     doc_type = "discriminatingconcept-bol-greyliterature"
 
             if doc_type:
@@ -177,8 +183,8 @@ class MetadataNodeExporter:
                 entity_type=EntityType("textdocument"),
                 key_attribute=KeyAttribute("hashvalue"),
                 payload_data={
-                    "namelike-title": meta.title
-                } if meta.title else {},
+                    "namelike-title": meta.get("title")
+                } if meta.get("title") else {},
                 relations=tuple(relations),
             )
 
@@ -198,12 +204,12 @@ class MetadataNodeExporter:
         n = name.lower()
         return len(n) < 3 or any(term in n for term in self.NOISE_TERMS)
 
-    def _hash(self, meta: TextMetadata) -> str:
+    def _hash(self, meta: dict[str, Any]) -> str:
 
         parts = [
-            meta.title or "",
-            ",".join(meta.authors or []),
-            meta.summary or "",
+            meta.get("title") or "",
+            ",".join(meta.get("authors") or []),
+            meta.get("summary") or "",
         ]
 
         return hashlib.sha256("|".join(parts).encode()).hexdigest()
@@ -213,14 +219,16 @@ class MetadataNodeExporter:
     # ─────────────────────────────────────────────
 
     def _person_node(self, name: str) -> Node:
-
         key = self._person_key(name)
-        parts = name.split(" ", 1)
 
-        payload = {"namelike-first": parts[0]}
-
-        if len(parts) == 2:
-            payload["namelike-last"] = parts[1]
+        if "," in name:
+            last, _, first = name.partition(",")
+            payload = {"namelike-first": first.strip(), "namelike-last": last.strip()}
+        else:
+            parts = name.split(" ", 1)
+            payload = {"namelike-first": parts[0]}
+            if len(parts) == 2:
+                payload["namelike-last"] = parts[1]
 
         return Node(
             id=NodeId(key),
