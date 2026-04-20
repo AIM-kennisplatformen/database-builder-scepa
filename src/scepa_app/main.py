@@ -16,7 +16,7 @@ from .util.partial_sync import PartialSync
 
 from database_builder_libs.models.chunk import Chunk
 from database_builder_libs.models.abstract_source import Content
-from database_builder_libs.sources.zotero_source import ZoteroSource, FileType
+from database_builder_libs.sources.zotero_source import ZoteroSource
 from database_builder_libs.sources.pdf_source import (
     PDFSource,
     SectionsConfig,
@@ -297,7 +297,7 @@ def main() -> None:
     strict_mode = config["strict_file_types"]
     allow_fallback = not strict_mode
     
-    print(f"\n📁 File Type Configuration:")
+    print("\n📁 File Type Configuration:")
     print(f"   Accepted types: {accepted_file_types}")
     print(f"   Strict mode: {strict_mode} (fallback: {allow_fallback})")
     print()
@@ -334,7 +334,7 @@ def main() -> None:
                     "title": zotero_fields.get("title") or "Unknown",
                     "reason": f"No acceptable file type found (wanted: {', '.join(accepted_file_types)})"
                 })
-                print(f"  [skip] No acceptable file type downloaded")
+                print("  [skip] No acceptable file type downloaded")
                 continue
 
             # Find downloaded file (may have different extension based on type)
