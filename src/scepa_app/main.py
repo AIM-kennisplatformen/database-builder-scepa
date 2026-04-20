@@ -8,7 +8,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from scepa_app.util.metadata_util import extract_zotero_metadata, merge_zotero_into_content, normalize_metadata, sanitize_metadata
+from .util.metadata_util import extract_zotero_metadata, merge_zotero_into_content, normalize_metadata, sanitize_metadata
 
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.node_util import print_nodes
@@ -16,7 +16,7 @@ from .util.partial_sync import PartialSync
 
 from database_builder_libs.models.chunk import Chunk
 from database_builder_libs.models.abstract_source import Content
-from database_builder_libs.sources.zotero_source import ZoteroSource
+from database_builder_libs.sources.zotero_source import ZoteroSource, FileType
 from database_builder_libs.sources.pdf_source import (
     PDFSource,
     SectionsConfig,
@@ -41,6 +41,7 @@ def require_env(name: str) -> str:
 
 
 def load_config() -> dict:
+    """Load configuration from environment variables."""
     return {
         "pdf_path":              Path(require_env("PDF_PATH")),
         "openai_host":           require_env("OPENAI_HOST"),
@@ -58,49 +59,32 @@ def load_config() -> dict:
         "zotero_collection_id":  require_env("ZOTERO_COLLECTION_ID"),
         "qdrant_api_key":        require_env("QDRANT_API_KEY"),
         "qdrant_uri":            require_env("QDRANT_URI"),
-        "qdrant_collection":     require_env("QDRANT_COLLECTION")
+        "qdrant_collection":     require_env("QDRANT_COLLECTION"),
+        # NEW: File type preferences for Zotero downloads
+        "accepted_file_types":   os.getenv("ACCEPTED_FILE_TYPES", "pdf,epub").split(","),
+        "strict_file_types":     os.getenv("STRICT_FILE_TYPES", "false").lower() == "true",
     }
 
 
-def is_downloadable_item(zotero_content: Content) -> bool:
+def get_file_types_for_config(accepted_types: list[str]) -> list[str]:
     """
-    Check if a Zotero item has a downloadable attachment.
+    Parse file type configuration string into list of types.
     
-    Returns True only for items that:
-    - Are of a downloadable type (journal article, book, conference paper, etc.)
-    - Have attachments metadata in Zotero
-    - Are not just web links or snapshots without content
+    Args:
+        accepted_types: Comma-separated string or list of file types
     
-    Skips:
-    - ResearchGate links
-    - Amazon links
-    - PubMed links
-    - Web snapshots without actual files
-    - Items with no attachments
+    Returns:
+        List of file types (pdf, epub, docx, doc, txt, html)
+    
+    Examples:
+        "pdf,epub" → ["pdf", "epub"]
+        "pdf" → ["pdf"]
+        ["pdf", "docx"] → ["pdf", "docx"]
     """
-    item_type = zotero_content.content.get("itemType", "")
-    
-    # Item types that can legitimately have PDF attachments
-    downloadable_types = {
-        "journalArticle",
-        "book",
-        "bookSection",
-        "conferencePaper",
-        "thesis",
-        "report",
-        "document",
-    }
-    
-    # Skip if item type is not downloadable
-    if item_type not in downloadable_types:
-        return False
-    
-    # Skip if no attachments listed in Zotero
-    attachments = zotero_content.content.get("attachments", [])
-    if not attachments:
-        return False
-    
-    return True
+    if isinstance(accepted_types, str):
+        return [t.strip().lower() for t in accepted_types.split(",")]
+    return [t.strip().lower() for t in accepted_types]
+
 
 
 def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
@@ -308,6 +292,16 @@ def main() -> None:
     failed_documents = []
     skipped_documents = []
 
+    # ✅ NEW: Get file type configuration
+    accepted_file_types = get_file_types_for_config(config["accepted_file_types"])
+    strict_mode = config["strict_file_types"]
+    allow_fallback = not strict_mode
+    
+    print(f"\n📁 File Type Configuration:")
+    print(f"   Accepted types: {accepted_file_types}")
+    print(f"   Strict mode: {strict_mode} (fallback: {allow_fallback})")
+    print()
+
     # Initialize incremental sync
     sync         = PartialSync()
     last_sync    = sync.start_sync("Zotero")
@@ -325,32 +319,42 @@ def main() -> None:
 
         print(f"\n[{item_key}] {zotero_fields.get('title', 'Unknown')}")
 
-        if not is_downloadable_item(zotero_content):
-            item_type = zotero_content.content.get("itemType", "unknown")
-            skipped_documents.append({
-                "item_key": item_key,
-                "title": zotero_fields.get("title") or "Unknown",
-                "reason": f"Item type '{item_type}' is not downloadable"
-            })
-            print(f"  [skip] Item type not downloadable: {item_type}")
-            continue
-
         try:
-            # 1. Download PDF from Zotero
-            zot.download_zotero_item(
+            # ✅ NEW: Download with configurable file types
+            download_success = zot.download_zotero_item(
                 item_id=item_key,
                 download_path=config["pdf_path"],
+                accept_types=accepted_file_types,
+                allow_fallback=allow_fallback
             )
-
-            pdf_path = config["pdf_path"] / f"{item_key}.pdf"
             
-            if not pdf_path.exists():
+            if not download_success:
                 skipped_documents.append({
                     "item_key": item_key,
                     "title": zotero_fields.get("title") or "Unknown",
-                    "reason": "PDF file not downloaded"
+                    "reason": f"No acceptable file type found (wanted: {', '.join(accepted_file_types)})"
                 })
-                print("  [skip] No PDF file downloaded")
+                print(f"  [skip] No acceptable file type downloaded")
+                continue
+
+            # Find downloaded file (may have different extension based on type)
+            # Try all possible extensions for the downloaded file
+            possible_extensions = [".pdf", ".epub", ".docx", ".doc", ".txt", ".html"]
+            pdf_path = None
+            
+            for ext in possible_extensions:
+                candidate = config["pdf_path"] / f"{item_key}{ext}"
+                if candidate.exists():
+                    pdf_path = candidate
+                    break
+            
+            if pdf_path is None:
+                skipped_documents.append({
+                    "item_key": item_key,
+                    "title": zotero_fields.get("title") or "Unknown",
+                    "reason": "Downloaded file not found on disk"
+                })
+                print("  [skip] Downloaded file not found")
                 continue
             
             file_size = pdf_path.stat().st_size
@@ -358,10 +362,12 @@ def main() -> None:
                 skipped_documents.append({
                     "item_key": item_key,
                     "title": zotero_fields.get("title") or "Unknown",
-                    "reason": "PDF file is empty"
+                    "reason": "Downloaded file is empty"
                 })
-                print("  [skip] PDF file is empty")
+                print(f"  [skip] Downloaded file is empty ({pdf_path.name})")
                 continue
+            
+            print(f"  ✓ Downloaded: {pdf_path.name}")
 
             pdf_src  = build_pdf_source(config, zotero_fields)
             contents = pdf_src.get_content([
