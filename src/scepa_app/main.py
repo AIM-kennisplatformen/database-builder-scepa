@@ -8,6 +8,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from .util.metadata_util import extract_zotero_metadata, merge_zotero_into_content, normalize_metadata, sanitize_metadata
+
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.node_util import print_nodes
 from .util.partial_sync import PartialSync
@@ -27,12 +29,9 @@ from database_builder_libs.stores.typedb.typedb_store import TypeDbDatastore
 from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
 from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
 
+
 load_dotenv()
 
-
-# --------------------------------------------------------------------------- #
-# Config                                                                       #
-# --------------------------------------------------------------------------- #
 
 def require_env(name: str) -> str:
     value = os.getenv(name)
@@ -42,81 +41,51 @@ def require_env(name: str) -> str:
 
 
 def load_config() -> dict:
+    """Load configuration from environment variables."""
     return {
-        "pdf_path":             Path(require_env("PDF_PATH")),
-        "openai_host":          require_env("OPENAI_HOST"),
-        "openai_key":           require_env("OPENAI_API_KEY"),
-        "embedding_model":      require_env("OPENAI_EMBEDDING_MODEL"),
-        "typedb_uri":           require_env("TYPEDB_URI"),
-        "typedb_database":      require_env("TYPEDB_DATABASE"),
-        "typedb_schema":        require_env("TYPEDB_SCHEMA_PATH"),
-        "zotero_library_id":    require_env("ZOTERO_LIBRARY_ID"),
-        "zotero_api_key":       require_env("ZOTERO_API_KEY"),
-        "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
+        "pdf_path":              Path(require_env("PDF_PATH")),
+        "openai_host":           require_env("OPENAI_HOST"),
+        "openai_llm_model":      require_env("OPENAI_LLM_MODEL"),
+        "openai_key":            require_env("OPENAI_API_KEY"),
+        "embedding_model":       require_env("OPENAI_EMBEDDING_MODEL"),
+        "embedding_vector_size": require_env("EMBEDDING_VECTOR_SIZE"),
+        "typedb_uri":            require_env("TYPEDB_URI"),
+        "typedb_database":       require_env("TYPEDB_DATABASE"),
+        "typedb_schema":         require_env("TYPEDB_SCHEMA_PATH"),
+        "typedb_user":           require_env("TYPEDB_USER"),
+        "typedb_password":       require_env("TYPEDB_PASSWORD"),
+        "zotero_library_id":     require_env("ZOTERO_LIBRARY_ID"),
+        "zotero_api_key":        require_env("ZOTERO_API_KEY"),
+        "zotero_collection_id":  require_env("ZOTERO_COLLECTION_ID"),
+        "qdrant_api_key":        require_env("QDRANT_API_KEY"),
+        "qdrant_uri":            require_env("QDRANT_URI"),
+        "qdrant_collection":     require_env("QDRANT_COLLECTION"),
+        # NEW: File type preferences for Zotero downloads
+        "accepted_file_types":   os.getenv("ACCEPTED_FILE_TYPES", "pdf,epub").split(","),
+        "strict_file_types":     os.getenv("STRICT_FILE_TYPES", "false").lower() == "true",
     }
 
 
-# --------------------------------------------------------------------------- #
-# Zotero metadata helpers                                                      #
-# --------------------------------------------------------------------------- #
-
-def _zotero_nonempty(value: object) -> str | None:
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def _zotero_format_name(creator: dict) -> str:
-    """Format a Zotero creator dict as 'Last, First'."""
-    if "name" in creator:
-        return creator["name"].strip()
-    last  = (creator.get("lastName")  or "").strip()
-    first = (creator.get("firstName") or "").strip()
-    if last and first:
-        return f"{last}, {first}"
-    return last or first
-
-
-def extract_zotero_metadata(zotero_content: Content) -> dict[str, Any]:
+def get_file_types_for_config(accepted_types: list[str]) -> list[str]:
     """
-    Pull the fields we care about out of a Zotero Content object.
-
-    ZoteroSource.get_content() sets Content.content = item["data"], so the
-    dict is already flat — title, creators, publisher, etc. are top-level keys.
-
-    Returns a dict with the same field names used in the PDF metadata dict so
-    it can be merged directly into Content.content["metadata"]:
-
-        title, authors, publishing_institute, summary, keywords
+    Parse file type configuration string into list of types.
+    
+    Args:
+        accepted_types: Comma-separated string or list of file types
+    
+    Returns:
+        List of file types (pdf, epub, docx, doc, txt, html)
+    
+    Examples:
+        "pdf,epub" → ["pdf", "epub"]
+        "pdf" → ["pdf"]
+        ["pdf", "docx"] → ["pdf", "docx"]
     """
-    data = zotero_content.content
-
-    authors = [
-        _zotero_format_name(c)
-        for c in (data.get("creators") or [])
-        if c.get("creatorType") in ("author", "editor")
-        and "name" not in c  # single "name" field = organisation, not a person
-    ] or None
-
-    publishing_institute = (
-        _zotero_nonempty(data.get("institution"))
-        or _zotero_nonempty(data.get("publisher"))
-    )
-
-    tags = [t["tag"] for t in (data.get("tags") or []) if t.get("tag")]
-
-    return {
-        "title":                _zotero_nonempty(data.get("title")),
-        "authors":              authors,
-        "publishing_institute": {"name": publishing_institute} if publishing_institute else None,
-        "summary":              _zotero_nonempty(data.get("abstractNote")),
-        "keywords":             tags or None,
-    }
+    if isinstance(accepted_types, str):
+        return [t.strip().lower() for t in accepted_types.split(",")]
+    return [t.strip().lower() for t in accepted_types]
 
 
-# --------------------------------------------------------------------------- #
-# Infrastructure                                                               #
-# --------------------------------------------------------------------------- #
 
 def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
     """
@@ -151,15 +120,11 @@ def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
     sections / chunks
         Always extracted from the PDF.
     """
-    # Fields Zotero already supplies are disabled so PDFSource does not
-    # extract them.  Omitting a field is not enough — PDFDocumentConfig
-    # has a default_factory for every field, so an absent key silently
-    # falls back to the default extraction strategy.
     cfg: dict[str, Any] = {
         "folder_path":  str(config["pdf_path"]),
         "llm_base_url": config["openai_host"],
         "llm_api_key":  config["openai_key"],
-        "llm_model":    "google/gemma-2-9b-it-fast",
+        "llm_model":    config["openai_llm_model"],
 
         "title": FieldExtractionConfig(enabled=False) if zotero_fields["title"] else
             FieldExtractionConfig(
@@ -190,12 +155,10 @@ def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
                 )
             ),
 
-        # acknowledgements — never in Zotero, always extract
         "acknowledgements": FieldExtractionConfig(
             strategies=OrderedStrategyConfig(order=[ExtractionStrategy.LLM])
         ),
 
-        # sections / chunking — always from PDF
         "sections": SectionsConfig(
             chunking_strategy=SummaryAndSectionsStrategy(),
             embedder=OpenAICompatibleChunkEmbedder(
@@ -211,6 +174,7 @@ def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
 
 
 def build_zotero_source(config: dict) -> ZoteroSource:
+    """Build Zotero source for fetching document metadata."""
     src = ZoteroSource()
     src.connect({
         "library_id":   config["zotero_library_id"],
@@ -220,80 +184,87 @@ def build_zotero_source(config: dict) -> ZoteroSource:
     return src
 
 
-def build_qdrant() -> QdrantDatastore:
+def build_qdrant(config: dict) -> QdrantDatastore:
+    """
+    Build Qdrant connection with conditional HTTPS based on URI scheme.
+    
+    HTTPS is automatically enabled for https:// URIs,
+    disabled for http:// URIs.
+    """
     store = QdrantDatastore()
+    enable_https = config["qdrant_uri"].startswith("https://")
+    
     store.connect({
-        "url":         "http://localhost:6333",
-        "collection":  "knowledge_base",
-        "vector_size": 4096,
+        "url":         config["qdrant_uri"],
+        "collection":  config["qdrant_collection"],
+        "api_key":     config["qdrant_api_key"],
+        "vector_size": config["embedding_vector_size"],
+        "https":       enable_https
     })
     return store
 
 
 def build_typedb(config: dict) -> TypeDbDatastore:
+    """
+    Build TypeDB connection with conditional TLS based on URI scheme.
+    
+    TLS is automatically enabled for https:// URIs,
+    disabled for http:// URIs.
+    """
     store = TypeDbDatastore()
-    store.connect(
-        {
-            "uri": config["typedb_uri"],
-            "username": "admin",
-            "password": "password",
-            "database": config["typedb_database"],
-            "schema_path": config["typedb_schema"],
-        }
-    )
+    enable_tls = config["typedb_uri"].startswith("https://")
+    
+    store.connect({
+        "uri": config["typedb_uri"],
+        "username": config["typedb_user"],
+        "password": config["typedb_password"],
+        "database": config["typedb_database"],
+        "schema_path": config["typedb_schema"],
+        "tls": enable_tls
+    })
     return store
 
 
-# --------------------------------------------------------------------------- #
-# Zotero metadata merge                                                        #
-# --------------------------------------------------------------------------- #
-
-def merge_zotero_into_content(
-    pdf_content: Content,
-    zotero_fields: dict[str, Any],
-) -> Content:
-    """
-    Overlay Zotero-sourced fields onto the PDF Content's metadata dict.
-
-    Only non-None Zotero fields are written; PDF-extracted values are kept
-    for everything else.  The ``source`` tracking dict is updated accordingly.
-    """
-    meta   = dict(pdf_content.content.get("metadata", {}))
-    source = dict(meta.get("source", {}))
-
-    for field_name, value in zotero_fields.items():
-        if value is not None:
-            meta[field_name]    = value
-            source[field_name]  = "zotero"
-
-    meta["source"] = source
-
-    updated = dict(pdf_content.content)
-    updated["metadata"] = meta
-
-    return Content(date=pdf_content.date, id_=pdf_content.id_, content=updated)
-
-
-# --------------------------------------------------------------------------- #
-# Storage                                                                      #
-# --------------------------------------------------------------------------- #
-
 def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
+    """Store document chunks in vector database."""
     qdrant.store_chunks(chunks)
 
 
 def store_graph(content: Content, typedb: TypeDbDatastore, doc_hash: str | None = None) -> list:
-    nodes = MetadataNodeExporter().export([content], doc_hash=doc_hash)
+    """
+    Store content graph in TypeDB with sanitized and normalized metadata.
+    
+    Process:
+    1. Sanitize metadata (strip HTML, remove None values)
+    2. Normalize metadata (escape special characters for TypeQL)
+    3. Export as graph nodes
+    4. Store in TypeDB
+    """
+    meta = content.content.get("metadata", {})
+    
+    # Step 1: Sanitize (remove unwanted content)
+    sanitized_meta = sanitize_metadata(meta)
+    
+    # Step 2: Normalize (escape special characters for TypeQL)
+    # This prevents TypeQL syntax errors from quotes, apostrophes, etc.
+    normalized_meta = normalize_metadata(sanitized_meta)
+    
+    # Update content with processed metadata
+    content_copy = Content(
+        date=content.date,
+        id_=content.id_,
+        content={**content.content, "metadata": normalized_meta}
+    )
+    
+    # Export and store in TypeDB
+    nodes = MetadataNodeExporter().export([content_copy], doc_hash=doc_hash)
     for node in nodes:
         typedb.store_node(node)
     return nodes
 
 
-# --------------------------------------------------------------------------- #
-# Reporting                                                                    #
-# --------------------------------------------------------------------------- #
-
 def print_summary(content: Content, chunks: list[Chunk]) -> None:
+    """Print summary of processed document and chunks."""
     meta = content.content.get("metadata", {})
     print("\nPipeline summary")
     print("----------------")
@@ -310,17 +281,28 @@ def print_summary(content: Content, chunks: list[Chunk]) -> None:
         print(c.text[:300].replace("\n", " "))
 
 
-# --------------------------------------------------------------------------- #
-# Main                                                                         #
-# --------------------------------------------------------------------------- #
-
 def main() -> None:
+    """Main pipeline for processing documents from Zotero."""
     config = load_config()
     zot    = build_zotero_source(config)
-    qdrant = build_qdrant()
+    qdrant = build_qdrant(config)
     typedb = build_typedb(config)
 
-    # ── Incremental sync cursor ───────────────────────────────────────────────
+    # Track documents that failed processing
+    failed_documents = []
+    skipped_documents = []
+
+    # ✅ NEW: Get file type configuration
+    accepted_file_types = get_file_types_for_config(config["accepted_file_types"])
+    strict_mode = config["strict_file_types"]
+    allow_fallback = not strict_mode
+    
+    print("\n📁 File Type Configuration:")
+    print(f"   Accepted types: {accepted_file_types}")
+    print(f"   Strict mode: {strict_mode} (fallback: {allow_fallback})")
+    print()
+
+    # Initialize incremental sync
     sync         = PartialSync()
     last_sync    = sync.start_sync("Zotero")
     last_sync_dt = datetime.fromtimestamp(last_sync) if last_sync is not None else None
@@ -328,70 +310,130 @@ def main() -> None:
     artefacts = zot.get_list_artefacts(last_synced=last_sync_dt)
     sync.finish_sync("Zotero", artefacts)
 
-    # ── Fetch Zotero Content objects (metadata + stable IDs) ─────────────────
-    zotero_contents = zot.get_content(artefacts[:5])
+    # Fetch Zotero content (metadata + stable IDs)
+    zotero_contents = zot.get_content(artefacts)
 
     for zotero_content in zotero_contents:
         item_key      = zotero_content.id_
         zotero_fields = extract_zotero_metadata(zotero_content)
 
-        print(
-            f"\n[{item_key}] Zotero supplies: "
-            + (", ".join(k for k, v in zotero_fields.items() if v is not None) or "nothing")
-        )
+        print(f"\n[{item_key}] {zotero_fields.get('title', 'Unknown')}")
 
-        # 1. Download PDF from Zotero
-        zot.download_zotero_item(
-            item_id=item_key,
-            download_path=config["pdf_path"],
-        )
+        try:
+            # ✅ NEW: Download with configurable file types
+            download_success = zot.download_zotero_item(
+                item_id=item_key,
+                download_path=config["pdf_path"],
+                accept_types=accepted_file_types,
+                allow_fallback=allow_fallback
+            )
+            
+            if not download_success:
+                skipped_documents.append({
+                    "item_key": item_key,
+                    "title": zotero_fields.get("title") or "Unknown",
+                    "reason": f"No acceptable file type found (wanted: {', '.join(accepted_file_types)})"
+                })
+                print("  [skip] No acceptable file type downloaded")
+                continue
 
-        pdf_path = config["pdf_path"] / f"{item_key}.pdf"
-        if not pdf_path.exists():
-            print(f"[skip] No PDF downloaded for {item_key}")
+            # Find downloaded file (may have different extension based on type)
+            # Try all possible extensions for the downloaded file
+            possible_extensions = [".pdf", ".epub", ".docx", ".doc", ".txt", ".html"]
+            pdf_path = None
+            
+            for ext in possible_extensions:
+                candidate = config["pdf_path"] / f"{item_key}{ext}"
+                if candidate.exists():
+                    pdf_path = candidate
+                    break
+            
+            if pdf_path is None:
+                skipped_documents.append({
+                    "item_key": item_key,
+                    "title": zotero_fields.get("title") or "Unknown",
+                    "reason": "Downloaded file not found on disk"
+                })
+                print("  [skip] Downloaded file not found")
+                continue
+            
+            file_size = pdf_path.stat().st_size
+            if file_size == 0:
+                skipped_documents.append({
+                    "item_key": item_key,
+                    "title": zotero_fields.get("title") or "Unknown",
+                    "reason": "Downloaded file is empty"
+                })
+                print(f"  [skip] Downloaded file is empty ({pdf_path.name})")
+                continue
+            
+            print(f"  ✓ Downloaded: {pdf_path.name}")
+
+            pdf_src  = build_pdf_source(config, zotero_fields)
+            contents = pdf_src.get_content([
+                (pdf_path.name, datetime.fromtimestamp(pdf_path.stat().st_mtime))
+            ])
+
+            if not contents:
+                print("  [skip] PDFSource produced no content")
+                continue
+
+            content = merge_zotero_into_content(contents[0], zotero_fields)
+            
+            # Compute document hash for traceability
+            meta = content.content.get("metadata", {})
+            doc_hash = hashlib.sha256("|".join([
+                meta.get("title") or "",
+                ",".join(meta.get("authors") or []),
+                meta.get("summary") or "",
+            ]).encode()).hexdigest()
+            
+            # Add document_hash to chunk metadata for traceability
+            chunks = []
+            for c in content.content["chunks"]:
+                c["metadata"] = c.get("metadata") or {}
+                c["metadata"]["document_hash"] = doc_hash
+                chunks.append(Chunk(**c))
+
+            store_vectors(chunks, qdrant)
+            nodes = store_graph(content, typedb, doc_hash=doc_hash)
+
+            print_nodes(nodes)
+            print_summary(content, chunks)
+
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            failed_documents.append({
+                "item_key": item_key,
+                "title": zotero_fields.get("title") or "Unknown",
+                "error": error_msg,
+            })
+            print(f"  [ERROR] {type(e).__name__}: {str(e)[:100]}")
             continue
 
-        # 2. Build a PDFSource configured for this document's specific gaps,
-        #    then parse + chunk + embed
-        pdf_src  = build_pdf_source(config, zotero_fields)
-        contents = pdf_src.get_content([
-            (pdf_path.name, datetime.fromtimestamp(pdf_path.stat().st_mtime))
-        ])
-
-        if not contents:
-            print(f"[skip] PDFSource produced no content for {item_key}")
-            continue
-
-        # 3. Overlay Zotero metadata on top of whatever PDFSource produced
-        content = merge_zotero_into_content(contents[0], zotero_fields)
-        
-        # Compute document hash for traceability
-        meta = content.content.get("metadata", {})
-        doc_hash = hashlib.sha256("|".join([
-            meta.get("title") or "",
-            ",".join(meta.get("authors") or []),
-            meta.get("summary") or "",
-        ]).encode()).hexdigest()
-        
-        # Add document_hash to chunk metadata for traceability
-        chunks = []
-        for c in content.content["chunks"]:
-            c["metadata"] = c.get("metadata") or {}
-            c["metadata"]["document_hash"] = doc_hash
-            chunks.append(Chunk(**c))
-
-        # 4. Store
-        store_vectors(chunks, qdrant)
-        nodes = store_graph(content, typedb, doc_hash=doc_hash)
-
-        # 5. Report
-        print_nodes(nodes)
-        print_summary(content, chunks)
-
-    # ── Read-back from TypeDB ─────────────────────────────────────────────────
     print("\nRetrieved nodes from TypeDB")
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
     print_nodes(retrieved)
+
+    if skipped_documents:
+        print("\n" + "=" * 80)
+        print(f"ℹ️  INFO: {len(skipped_documents)} document(s) skipped (expected)")
+        print("=" * 80)
+        for doc in skipped_documents[:5]:  # Show first 5
+            print(f"\n[{doc['item_key']}] {doc['title']}")
+            print(f"  Reason: {doc['reason']}")
+        if len(skipped_documents) > 5:
+            print(f"\n... and {len(skipped_documents) - 5} more skipped documents")
+        print("\n" + "=" * 80)
+
+    if failed_documents:
+        print("\n" + "=" * 80)
+        print(f"⚠️  WARNING: {len(failed_documents)} document(s) failed to process")
+        print("=" * 80)
+        for doc in failed_documents:
+            print(f"\n[{doc['item_key']}] {doc['title']}")
+            print(f"  Error: {doc['error'][:150]}")
+        print("\n" + "=" * 80)
 
 
 if __name__ == "__main__":
