@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+
+from scepa_app.util.metadata_util import extract_zotero_metadata, merge_zotero_into_content, normalize_metadata, sanitize_metadata
 
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.node_util import print_nodes
@@ -28,12 +29,8 @@ from database_builder_libs.stores.typedb.typedb_store import TypeDbDatastore
 from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
 from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
 
+
 load_dotenv()
-
-
-# --------------------------------------------------------------------------- #
-# Config                                                                       #
-# --------------------------------------------------------------------------- #
 
 def require_env(name: str) -> str:
     value = os.getenv(name)
@@ -46,134 +43,23 @@ def load_config() -> dict:
     return {
         "pdf_path":             Path(require_env("PDF_PATH")),
         "openai_host":          require_env("OPENAI_HOST"),
+        "openai_llm_model":     require_env("OPENAI_LLM_MODEL"),
         "openai_key":           require_env("OPENAI_API_KEY"),
         "embedding_model":      require_env("OPENAI_EMBEDDING_MODEL"),
+        "embedding_vector_size": require_env("EMBEDDING_VECTOR_SIZE"),
         "typedb_uri":           require_env("TYPEDB_URI"),
         "typedb_database":      require_env("TYPEDB_DATABASE"),
         "typedb_schema":        require_env("TYPEDB_SCHEMA_PATH"),
+        "typedb_user":          require_env("TYPEDB_USER"),
+        "typedb_password":      require_env("TYPEDB_PASSWORD"),
         "zotero_library_id":    require_env("ZOTERO_LIBRARY_ID"),
         "zotero_api_key":       require_env("ZOTERO_API_KEY"),
         "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
         "qdrant_api_key":       require_env("QDRANT_API_KEY"),
+        "qdrant_uri":           require_env("QDRANT_URI"),
+        "qdrant_collection":    require_env("QDRANT_COLLECTION")
     }
 
-
-# --------------------------------------------------------------------------- #
-# Metadata sanitization helpers                                               #
-# --------------------------------------------------------------------------- #
-
-def strip_html_tags(text: str | None) -> str | None:
-    """Remove HTML/XML tags from text, preserving content."""
-    if not text:
-        return text
-    # Remove HTML/XML tags
-    text = re.sub(r'<[^>]+>', '', text)
-    # Decode common HTML entities
-    text = text.replace("&lt;", "<").replace("&gt;", ">")
-    text = text.replace("&amp;", "&").replace("&quot;", '"')
-    text = text.replace("&apos;", "'")
-    return text.strip() if text else None
-
-
-def escape_typeql_string(text: str | None) -> str | None:
-    """Escape special characters for TypeQL string literals."""
-    if not text:
-        return text
-    # Escape backslashes first, then quotes
-    text = text.replace("\\", "\\\\")
-    text = text.replace('"', '\\"')
-    return text
-
-
-def sanitize_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    """
-    Sanitize metadata fields for TypeDB storage.
-    - Strips HTML/XML tags from all string fields
-    - Escapes special characters for TypeQL
-    - Removes None values to avoid null checks
-    """
-    sanitized = {}
-    for key, value in metadata.items():
-        if value is None:
-            continue
-        
-        if isinstance(value, str):
-            value = strip_html_tags(value)
-            value = escape_typeql_string(value)
-        elif isinstance(value, list) and value and isinstance(value[0], str):
-            # Handle list of strings (e.g., authors, keywords)
-            value = [
-                escape_typeql_string(strip_html_tags(v))
-                for v in value
-            ]
-        
-        if value:  # Only include non-empty values
-            sanitized[key] = value
-    
-    return sanitized
-
-
-# --------------------------------------------------------------------------- #
-# Zotero metadata helpers                                                      #
-# --------------------------------------------------------------------------- #
-
-def _zotero_nonempty(value: object) -> str | None:
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def _zotero_format_name(creator: dict) -> str:
-    """Format a Zotero creator dict as 'Last, First'."""
-    if "name" in creator:
-        return creator["name"].strip()
-    last  = (creator.get("lastName")  or "").strip()
-    first = (creator.get("firstName") or "").strip()
-    if last and first:
-        return f"{last}, {first}"
-    return last or first
-
-
-def extract_zotero_metadata(zotero_content: Content) -> dict[str, Any]:
-    """
-    Pull the fields we care about out of a Zotero Content object.
-
-    ZoteroSource.get_content() sets Content.content = item["data"], so the
-    dict is already flat — title, creators, publisher, etc. are top-level keys.
-
-    Returns a dict with the same field names used in the PDF metadata dict so
-    it can be merged directly into Content.content["metadata"]:
-
-        title, authors, publishing_institute, summary, keywords
-    """
-    data = zotero_content.content
-
-    authors = [
-        _zotero_format_name(c)
-        for c in (data.get("creators") or [])
-        if c.get("creatorType") in ("author", "editor")
-        and "name" not in c  # single "name" field = organisation, not a person
-    ] or None
-
-    publishing_institute = (
-        _zotero_nonempty(data.get("institution"))
-        or _zotero_nonempty(data.get("publisher"))
-    )
-
-    tags = [t["tag"] for t in (data.get("tags") or []) if t.get("tag")]
-
-    return {
-        "title":                _zotero_nonempty(data.get("title")),
-        "authors":              authors,
-        "publishing_institute": {"name": publishing_institute} if publishing_institute else None,
-        "summary":              _zotero_nonempty(data.get("abstractNote")),
-        "keywords":             tags or None,
-    }
-
-
-# --------------------------------------------------------------------------- #
-# Infrastructure                                                               #
-# --------------------------------------------------------------------------- #
 
 def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
     """
@@ -216,7 +102,7 @@ def build_pdf_source(config: dict, zotero_fields: dict[str, Any]) -> PDFSource:
         "folder_path":  str(config["pdf_path"]),
         "llm_base_url": config["openai_host"],
         "llm_api_key":  config["openai_key"],
-        "llm_model":    "google/gemma-2-9b-it-fast",
+        "llm_model":    config["openai_llm_model"],
 
         "title": FieldExtractionConfig(enabled=False) if zotero_fields["title"] else
             FieldExtractionConfig(
@@ -279,63 +165,32 @@ def build_zotero_source(config: dict) -> ZoteroSource:
 
 def build_qdrant(config: dict) -> QdrantDatastore:
     store = QdrantDatastore()
+    enable_https = config["qdrant_uri"].startswith("https://")
     store.connect({
-        "url":         "https://dbscepadev.mads-han.src.surf-hosted.nl:6333",
-        "collection":  "knowledge_base",
+        "url":         config["qdrant_uri"],
+        "collection":  config["qdrant_collection"],
         "api_key":     config["qdrant_api_key"],
-        "vector_size": 4096,
+        "vector_size": config["embedding_vector_size"],
+        "https":       enable_https
     })
     return store
 
 
 def build_typedb(config: dict) -> TypeDbDatastore:
     store = TypeDbDatastore()
+    enable_tls = config["typedb_uri"].startswith("https://")
     store.connect(
         {
             "uri": config["typedb_uri"],
-            "username": "admin",
-            "password": "",
+            "username": config["typedb_user"],
+            "password": config["typedb_password"],
             "database": config["typedb_database"],
             "schema_path": config["typedb_schema"],
-            "tls": True
+            "tls": enable_tls
         }
     )
     return store
 
-
-# --------------------------------------------------------------------------- #
-# Zotero metadata merge                                                        #
-# --------------------------------------------------------------------------- #
-
-def merge_zotero_into_content(
-    pdf_content: Content,
-    zotero_fields: dict[str, Any],
-) -> Content:
-    """
-    Overlay Zotero-sourced fields onto the PDF Content's metadata dict.
-
-    Only non-None Zotero fields are written; PDF-extracted values are kept
-    for everything else.  The ``source`` tracking dict is updated accordingly.
-    """
-    meta   = dict(pdf_content.content.get("metadata", {}))
-    source = dict(meta.get("source", {}))
-
-    for field_name, value in zotero_fields.items():
-        if value is not None:
-            meta[field_name]    = value
-            source[field_name]  = "zotero"
-
-    meta["source"] = source
-
-    updated = dict(pdf_content.content)
-    updated["metadata"] = meta
-
-    return Content(date=pdf_content.date, id_=pdf_content.id_, content=updated)
-
-
-# --------------------------------------------------------------------------- #
-# Storage                                                                      #
-# --------------------------------------------------------------------------- #
 
 def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
     qdrant.store_chunks(chunks)
@@ -343,17 +198,18 @@ def store_vectors(chunks: list[Chunk], qdrant: QdrantDatastore) -> None:
 
 def store_graph(content: Content, typedb: TypeDbDatastore, doc_hash: str | None = None) -> list:
     """
-    Store content graph in TypeDB with sanitized metadata.
+    Store content graph in TypeDB with sanitized and normalized metadata.
     """
-    # Sanitize metadata before export to prevent TypeQL syntax errors
+    # Sanitize and normalize metadata before export to prevent TypeQL syntax errors
     meta = content.content.get("metadata", {})
     sanitized_meta = sanitize_metadata(meta)
+    normalized_meta = normalize_metadata(sanitized_meta)
     
-    # Update content with sanitized metadata
+    # Update content with processed metadata
     content_copy = Content(
         date=content.date,
         id_=content.id_,
-        content={**content.content, "metadata": sanitized_meta}
+        content={**content.content, "metadata": normalized_meta}
     )
     
     nodes = MetadataNodeExporter().export([content_copy], doc_hash=doc_hash)
@@ -361,10 +217,6 @@ def store_graph(content: Content, typedb: TypeDbDatastore, doc_hash: str | None 
         typedb.store_node(node)
     return nodes
 
-
-# --------------------------------------------------------------------------- #
-# Reporting                                                                    #
-# --------------------------------------------------------------------------- #
 
 def print_summary(content: Content, chunks: list[Chunk]) -> None:
     meta = content.content.get("metadata", {})
@@ -383,10 +235,6 @@ def print_summary(content: Content, chunks: list[Chunk]) -> None:
         print(c.text[:300].replace("\n", " "))
 
 
-# --------------------------------------------------------------------------- #
-# Main                                                                         #
-# --------------------------------------------------------------------------- #
-
 def main() -> None:
     config = load_config()
     zot    = build_zotero_source(config)
@@ -396,7 +244,6 @@ def main() -> None:
     # Track documents that failed processing
     failed_documents = []
 
-    # ── Incremental sync cursor ───────────────────────────────────────────────
     sync         = PartialSync()
     last_sync    = sync.start_sync("Zotero")
     last_sync_dt = datetime.fromtimestamp(last_sync) if last_sync is not None else None
@@ -404,7 +251,6 @@ def main() -> None:
     artefacts = zot.get_list_artefacts(last_synced=last_sync_dt)
     sync.finish_sync("Zotero", artefacts)
 
-    # ── Fetch Zotero Content objects (metadata + stable IDs) ─────────────────
     zotero_contents = zot.get_content(artefacts)
 
     for zotero_content in zotero_contents:
@@ -477,15 +323,13 @@ def main() -> None:
             print("  Continuing with next document...\n")
             continue
 
-    # ── Read-back from TypeDB ─────────────────────────────────────────────────
     print("\nRetrieved nodes from TypeDB")
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
     print_nodes(retrieved)
 
-    # ── Report failed documents ───────────────────────────────────────────────
     if failed_documents:
         print("\n" + "=" * 80)
-        print(f"⚠️  WARNING: {len(failed_documents)} document(s) failed to process")
+        print(f"WARNING: {len(failed_documents)} document(s) failed to process")
         print("=" * 80)
         for doc in failed_documents:
             print(f"\n[{doc['item_key']}] {doc['title']}")
