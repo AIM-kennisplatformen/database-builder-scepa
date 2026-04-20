@@ -350,7 +350,7 @@ def main() -> None:
                     "title": zotero_fields.get("title") or "Unknown",
                     "reason": "PDF file not downloaded"
                 })
-                print(f"  [skip] No PDF file downloaded")
+                print("  [skip] No PDF file downloaded")
                 continue
             
             file_size = pdf_path.stat().st_size
@@ -360,7 +360,7 @@ def main() -> None:
                     "title": zotero_fields.get("title") or "Unknown",
                     "reason": "PDF file is empty"
                 })
-                print(f"  [skip] PDF file is empty")
+                print("  [skip] PDF file is empty")
                 continue
 
             pdf_src  = build_pdf_source(config, zotero_fields)
@@ -369,7 +369,7 @@ def main() -> None:
             ])
 
             if not contents:
-                print(f"  [skip] PDFSource produced no content")
+                print("  [skip] PDFSource produced no content")
                 continue
 
             content = merge_zotero_into_content(contents[0], zotero_fields)
