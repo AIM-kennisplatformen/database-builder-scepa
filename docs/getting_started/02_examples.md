@@ -1,6 +1,6 @@
 # Examples
 
-This page provides practical examples of how to use the database-builder-libs library for various use cases.
+This page provides practical examples of how to use the database-builder-scepa library for various use cases.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ The Zotero source allows you to connect to a Zotero library and retrieve documen
 ### Connecting to Zotero
 
 ```python
-from database_builder_libs.sources.zotero_source import ZoteroSource
+from database_builder_scepa.sources.zotero_source import ZoteroSource
 
 # Initialize the Zotero source
 zotero_source = ZoteroSource()
@@ -102,7 +102,7 @@ Only `folder_path` is required. With no further config, metadata is extracted fr
 metadata and Docling structural heuristics. No LLM calls are made.
 
 ```python
-from database_builder_libs.sources.pdf_source import PDFSource
+from database_builder_scepa.sources.pdf_source import PDFSource
 
 src = PDFSource()
 src.connect({"folder_path": "/data/papers"})
@@ -165,7 +165,7 @@ Each metadata field can be configured independently. Strategies are tried in ord
 extraction stops on the first success unless `stop_on_success=False`.
 
 ```python
-from database_builder_libs.sources.pdf_source import (
+from database_builder_scepa.sources.pdf_source import (
     PDFSource,
     FieldExtractionConfig,
     OrderedStrategyConfig,
@@ -236,9 +236,9 @@ meta["source"]  = source
 Pass a `SectionsConfig` to control how sections are chunked and embedded.
 
 ```python
-from database_builder_libs.sources.pdf_source import SectionsConfig
-from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
-from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
+from database_builder_scepa.sources.pdf_source import SectionsConfig
+from database_builder_scepa.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
+from database_builder_scepa.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
 
 src = PDFSource()
 src.connect({
@@ -296,7 +296,7 @@ code blocks, list blocks, footnotes, and page furniture).
 ### Parsing a file on disk
 
 ```python
-from database_builder_libs.utility.extract.document_parser_docling import (
+from database_builder_scepa.utility.extract.document_parser_docling import (
     DocumentConversionError,
     DocumentParserDocling,
 )
@@ -322,7 +322,7 @@ downloaded from an API or read from object storage.
 
 ```python
 from io import BytesIO
-from database_builder_libs.utility.extract.document_parser_docling import (
+from database_builder_scepa.utility.extract.document_parser_docling import (
     DocumentConversionError,
     DocumentParserDocling,
 )
@@ -420,7 +420,7 @@ are silently dropped. This is the simplest strategy and works well when the sour
 document has clean, well-scoped headings.
 
 ```python
-from database_builder_libs.utility.chunk.n_points_section import SectionChunkingStrategy
+from database_builder_scepa.utility.chunk.n_points_section import SectionChunkingStrategy
 
 strategy = SectionChunkingStrategy(
     min_chars=20,               # sections shorter than this are dropped
@@ -450,7 +450,7 @@ respecting whitespace boundaries. Useful when sections vary wildly in length and
 uniform context window is preferred.
 
 ```python
-from database_builder_libs.utility.chunk.n_points_fixed_size import FixedSizeChunkingStrategy
+from database_builder_scepa.utility.chunk.n_points_fixed_size import FixedSizeChunkingStrategy
 
 strategy = FixedSizeChunkingStrategy(
     chunk_size=500,  # maximum characters per chunk
@@ -473,7 +473,7 @@ context at chunk boundaries is not lost. `overlap` must be strictly less than
 `chunk_size`; passing an equal or larger value raises `ValueError`.
 
 ```python
-from database_builder_libs.utility.chunk.n_points_sliding_window import SlidingWindowChunkingStrategy
+from database_builder_scepa.utility.chunk.n_points_sliding_window import SlidingWindowChunkingStrategy
 
 strategy = SlidingWindowChunkingStrategy(
     chunk_size=500,  # maximum characters per chunk
@@ -495,7 +495,7 @@ summary chunk at index 0. This is the right choice when section-level retrieval
 granularity must be maintained and an optional LLM-generated summary is desired.
 
 ```python
-from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
+from database_builder_scepa.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
 
 strategy = SummaryAndSectionsStrategy(min_chars=20)
 
@@ -554,8 +554,8 @@ The Qdrant vector store allows you to store and retrieve document chunks based o
 ### Connecting to Qdrant
 
 ```python
-from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
-from database_builder_libs.models.chunk import Chunk
+from database_builder_scepa.stores.qdrant.qdrant_store import QdrantDatastore
+from database_builder_scepa.models.chunk import Chunk
 
 # Initialize the Qdrant store
 qdrant_store = QdrantDatastore()
@@ -642,8 +642,8 @@ The TypeDB store provides a graph database backend for storing and retrieving st
 ### Connecting to TypeDB
 
 ```python
-from database_builder_libs.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
-from database_builder_libs.models.node import Node, NodeId, EntityType, KeyAttribute
+from database_builder_scepa.stores.typedb_v2.typedb_v2_store import TypeDbDatastore
+from database_builder_scepa.models.node import Node, NodeId, EntityType, KeyAttribute
 
 # Initialize the TypeDB store
 typedb_store = TypeDbDatastore()
@@ -759,4 +759,4 @@ except ValueError as e:
     print(f"Error: {e}")  # Multiple nodes matched the filter
 ```
 
-These examples demonstrate the core functionality of the database-builder-libs library. You can adapt them to suit your specific use cases.
+These examples demonstrate the core functionality of the database-builder-scepa library. You can adapt them to suit your specific use cases.

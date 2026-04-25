@@ -1,4 +1,4 @@
-site_name: Database-builder-libs
+site_name: Database-builder-scepa
 theme:
   name: material
   features:
@@ -143,27 +143,11 @@ nav:
 - Getting Started:
   - getting_started/00_getting_started.md
   - getting_started/01_learn_the_basics.md
-  - getting_started/02_examples.md
-- Main modules:
-  - main_modules/00_overview.md
-  - Sources:
-    - main_modules/01_abstract_source.md
-    - main_modules/04_zotero_source.md
-    - main_modules/12_pdf_source.md
-  - Graph Stores:
-    - main_modules/02_stores.md
-    - main_modules/05_typedb_v2_store.md
-  - Vector Stores:
-    - main_modules/06_vector_stores.md
-    - main_modules/07_qdrant_store.md
-  - Text extract utilities:
-    - main_modules/03_text_extract_utilities.md
-  - Text chunk utilities:
-    - main_modules/08_chunking_strategy.md
-  - Text embed utilities:
-    - main_modules/09_abstract_chunk_embedder.md
-    - main_modules/10_chunk_embedder_openai.md
-    - main_modules/11_chunk_embedder_transformer.md
+  # - getting_started/02_examples.md
+- Introduction:
+    - introduction/00_introduction.md
+    - introduction/01_faq.md
+    - introduction/02_repository.md
 
 - Contributing:
   - contributing/rules.md
