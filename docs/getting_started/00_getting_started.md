@@ -1,8 +1,16 @@
 # How to integrate in your project
 
-To use this library in your project, you must add it as a dependency in your `pyproject.toml`.
+## Project setup (Pixi)
 
-Since the library is **not published on PyPI**, you have two options:
+Pixi can use `pyproject.toml` as the project configuration file.
+
+If you don’t already have a project, create one:
+
+```bash
+pixi init --format pyproject
+```
+
+There are two options of integrating database-builder-scepa into your project:
 
 1. **Install directly from GitHub**
 2. **Clone the repository locally and reference it from your project**
@@ -13,24 +21,19 @@ Since the library is **not published on PyPI**, you have two options:
 
 This is the easiest way if you simply want to **use the library as a dependency**.
 
-=== "UV"
+Add the dependency with:
 
-    Add the dependency using:
+```bash
+pixi add "database-builder-scepa @ https://github.com/AIM-kennisplatformen/database-builder-scepa.git"
+```
 
-    ```bash
-    uv add "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git"
-    ```
+Pixi will:
 
-    This will automatically update your `pyproject.toml` and install the package.
+- download the repository from GitHub
+- install it into your environment
+- manage it as a project dependency
 
-=== "Pixi"
-    Add the dependency with:
-
-    ```bash
-    pixi add "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git"
-    ```
-
-    Pixi will add the dependency under the `pypi-dependencies` section in your `pyproject.toml`.
+No manual cloning is required.
 
 ## Install from a local clone (development)
 
@@ -39,7 +42,7 @@ If you want to **develop or test changes in the library**, clone the repository 
 Clone the repository inside your project directory:
 
 ```bash
-git clone https://github.com/AIM-kennisplatformen/database-builder-libs.git
+git clone https://github.com/AIM-kennisplatformen/database-builder-scepa.git
 ```
 
 Your project structure might look like this:
@@ -47,37 +50,15 @@ Your project structure might look like this:
 ```
 my-project/
 ├─ pyproject.toml
-├─ database-builder-libs/
+├─ src/
+├─ database-builder-scepa/
 ```
 
+Add the following to your `pyproject.toml`:
 
-=== "UV"
+```toml
+  [tool.pixi.pypi-dependencies]
+  database-builder-scepa = { path = "./database-builder-scepa", editable = true }
+```
 
-    Add the local dependency to your `pyproject.toml`:
-
-    ```toml
-    [project]
-    dependencies = [
-        "database-builder-libs @ file:./database-builder-libs"
-    ]
-    ```
-
-    For active development, you can install it in **editable mode**:
-
-    ```bash
-    uv pip install -e ./database-builder-libs
-    ```
-
-
-=== "Pixi"
-
-    Add the following to your `pyproject.toml`:
-
-    ```toml
-    [tool.pixi.pypi-dependencies]
-    database-builder-libs = { path = "./database-builder-libs", editable = true }
-    ```
-
-    Using `editable = true` ensures that changes to the local library are immediately reflected in your environment.
-
-
+Using `editable = true` ensures that changes to the local library are immediately reflected in your environment.

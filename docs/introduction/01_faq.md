@@ -2,7 +2,7 @@
 
 ## Where can I ask questions?
 
-We use [GitHub issues](https://github.com/AIM-kennisplatformen/database-builder-libs/issues) for development related discussion. You should use them only if your question or issue is tightly related to the development of the library.
+We use [GitHub issues](https://github.com/AIM-kennisplatformen/database-builder-scepa/issues) for development related discussion. You should use them only if your question or issue is tightly related to the development of the library.
 
 Before posting a question, please read this FAQ section since you might find the answer to your issue here as well.
 
