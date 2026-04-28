@@ -9,8 +9,8 @@ With the help of consistent and easy-to-learn API functions you can create your 
 This chapter will show the basics to give an idea about how database-builder-scepa works and how it can be used. For more details about each feature visit that feature's dedicated documentation page.
 
 ## Prerequisites
-First of all you should have the Pixi package manager installed by following the guide [at this link](https://pixi.sh/latest/installation/).
 
+First of all you should have the Pixi package manager installed by following the guide [at this link](https://pixi.sh/latest/installation/).
 
 ## What's next
 

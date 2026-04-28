@@ -2,6 +2,41 @@
 
 This page provides practical examples of how to use the database-builder-scepa library for various use cases.
 
+Some snippets below are illustrative and may be adapted from the codebase rather than copied verbatim, to make the codebase easier to understand.
+
+## Main modules quick tour
+
+If you want to understand the codebase quickly, start with `src/scepa_app/main.py`.
+The most useful functions to read first are:
+
+- `main()` - runs the full pipeline
+- `load_config()` - reads required environment variables
+- `parse_document()` - parses a PDF into a structured document
+- `extract_metadata()` - merges Zotero metadata with document metadata
+- `extract_chunks()` - builds chunks from parsed sections
+- `store_vectors()` and `store_graph()` - persist the results
+
+Then look at the supporting modules:
+
+- `TextMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata.py`
+- `ZoteroMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
+- `MetadataNodeExporter.export()` in `src/scepa_app/graph/graph_from_metadata.py`
+
+Example pipeline:
+
+```python
+config = load_config()
+doc = parse_document(pdf_path)
+metadata = extract_metadata(pdf_path, doc, config, zotero_item)
+chunks = extract_chunks(doc, document_id=item_key, summary=metadata.summary)
+chunks = embed_chunks(chunks, config)
+store_vectors(chunks)
+
+nodes = MetadataNodeExporter().export([metadata])
+dump_nodes(nodes, config["pdf_path"] / f"{item_key}_nodes.json")
+store_graph(nodes, config)
+```
+
 ## Table of Contents
 
 - [Working with Zotero Source](#working-with-zotero-source)
@@ -485,8 +520,8 @@ chunks = strategy.chunk(sections, document_id="doc-001")
 ```
 
 Because adjacent chunks share content, this strategy produces more chunks than
-fixed-size for the same input. The overlap means the end of chunk *N* and the start
-of chunk *N+1* share words, which improves recall for queries that land near a boundary.
+fixed-size for the same input. The overlap means the end of chunk _N_ and the start
+of chunk _N+1_ share words, which improves recall for queries that land near a boundary.
 
 ### Summary + sections chunking
 
@@ -528,12 +563,12 @@ for chunk in body_chunks:
 
 ### Choosing a strategy
 
-| Strategy | Chunks produced | When to use |
-|---|---|---|
-| `SectionChunkingStrategy` | One per section | Clean heading structure, variable section length is acceptable |
-| `FixedSizeChunkingStrategy` | One or more per section | Uniform context window needed, no overlap required |
-| `SlidingWindowChunkingStrategy` | More than fixed-size due to overlap | Boundary recall matters; willing to trade storage for coverage |
-| `SummaryAndSectionsStrategy` | One per section (+ 1 if summary provided) | Section structure must be preserved with an optional summary chunk prepended |
+| Strategy                        | Chunks produced                           | When to use                                                                  |
+| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `SectionChunkingStrategy`       | One per section                           | Clean heading structure, variable section length is acceptable               |
+| `FixedSizeChunkingStrategy`     | One or more per section                   | Uniform context window needed, no overlap required                           |
+| `SlidingWindowChunkingStrategy` | More than fixed-size due to overlap       | Boundary recall matters; willing to trade storage for coverage               |
+| `SummaryAndSectionsStrategy`    | One per section (+ 1 if summary provided) | Section structure must be preserved with an optional summary chunk prepended |
 
 ### Common chunk fields
 

@@ -1,34 +1,29 @@
 # Database Builder scepa
 
-Database Builder scepa is a Python library for building data ingestion and retrieval pipelines for knowledge graph–oriented applications.
+Database Builder scepa is a Python library for building data ingestion and retrieval pipelines for knowledge graph-oriented applications.
 
-## Overview
+## Start here
 
-This documentation covers the main components of the library and how to use them in a pipeline-based system.
+- [Introduction](introduction/00_introduction.md)
+- [FAQ](introduction/01_faq.md)
+- [Repository notes](introduction/02_repository.md)
 
-## Documentation
+## Learn the workflow
 
-### Getting started
-
-- [Getting Started](getting_started/00_getting_started.md)
-- [Learn the Basics](getting_started/01_learn_the_basics.md)
+- [Getting started](getting_started/00_getting_started.md)
+- [Learn the basics](getting_started/01_learn_the_basics.md)
 - [Examples](getting_started/02_examples.md)
 
-### Core modules
+## Explore the code
 
-- [Module Overview](main_modules/00_overview.md)
-- [Connectors](main_modules/connectors.md)
-- [Sync system](main_modules/sync.md)
-- [Storage layer](main_modules/storage.md)
-
-## Architecture
-
-- [System Architecture](architecture/overview.md)
+- [Main modules](main_modules/00_overview.md)
+- [Connectors](main_modules/01_connectors.md)
+- [Storage layer](main_modules/02_storage.md)
+- [Sync system](main_modules/03_sync.md)
 
 ## Contributing
 
-- [Contribution Guidelines](contributing/rules.md)
-- [Development Setup](contributing/setup.md)
+- [Contribution rules](contributing/rules.md)
 
 ## License
 
