@@ -1,16 +1,20 @@
 import sqlite3
 import time
 from datetime import datetime
-from typing import List, Tuple, Optional
+from pathlib import Path
 
-Artifact = Tuple[str, datetime]
+Artifact = tuple[str, datetime]
+ConflictItem = str
+
+
+DEFAULT_DB_PATH = "partial_sync.db"
 
 
 class PartialSync:
     """Keeps metadata from multiple sources in sync."""
 
-    def __init__(self, db_path: str = "partial_sync.db"):
-        self.conn = sqlite3.connect(db_path)
+    def __init__(self, db_path: str | Path = DEFAULT_DB_PATH):
+        self.conn = sqlite3.connect(str(db_path))
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=NORMAL")
         self._init_db()
@@ -50,7 +54,7 @@ class PartialSync:
 
         self.conn.commit()
 
-    def start_sync(self, source_name: str) -> Optional[float]:
+    def start_sync(self, source_name: str) -> float | None:
         """Return the last sync timestamp for the source."""
 
         cur = self.conn.cursor()
@@ -77,8 +81,8 @@ class PartialSync:
     def finish_sync(
         self,
         source_name: str,
-        list_of_artifacts: List[Artifact],
-    ) -> List[str]:
+        list_of_artifacts: list[Artifact],
+    ) -> list[ConflictItem]:
         """
         Insert artifacts reported by the source and return
         artifacts requiring reconciliation.
@@ -117,7 +121,7 @@ class PartialSync:
 
         return self._find_conflicts(source_name)
 
-    def _find_conflicts(self, source_name: str) -> List[str]:
+    def _find_conflicts(self, source_name: str) -> list[ConflictItem]:
         """Return item_keys where sources disagree on modification time."""
 
         cur = self.conn.cursor()
