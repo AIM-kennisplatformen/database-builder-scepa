@@ -87,8 +87,7 @@ docs-build = "mkdocs build"
 
 [tool.pixi.activation.env]
 PYTHONNOUSERSITE = "1"
-# TODO: uncomment the following before PR!
-# LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
 # Platform-specific deps
 [tool.pixi.target.linux-64.dependencies]
