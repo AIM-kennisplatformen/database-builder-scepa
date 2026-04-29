@@ -5,10 +5,11 @@ This page gives a quick tour of the main modules in `src/scepa_app`.
 If you are reading the code for the first time, start with these entry points:
 
 1. `src/scepa_app/main.py`
-2. `src/scepa_app/document_parsing/extract_text_metadata.py`
-3. `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
-4. `src/scepa_app/graph/graph_from_metadata.py`
-5. `src/scepa_app/util/partial_sync.py`
+2. `src/scepa_app/settings.py`
+3. `src/scepa_app/document_parsing/extract_text_metadata.py`
+4. `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
+5. `src/scepa_app/graph/graph_from_metadata.py`
+6. `src/scepa_app/util/partial_sync.py`
 
 ## 1. Application flow
 
@@ -17,13 +18,16 @@ Start in `src/scepa_app/main.py`.
 Look at these functions first:
 
 - `main()` - runs the full pipeline
-- `load_config()` - reads required environment variables
+- `load_settings()` - reads required environment variables
+- `connect_qdrant()` - creates the vector store connection
+- `connect_typedb()` - creates the graph store connection
 - `parse_document()` - converts a PDF into a parsed document
 - `extract_metadata()` - combines Zotero data and document heuristics
 - `extract_chunks()` - creates chunks from parsed sections
 - `embed_chunks()` - adds vectors to the chunks
 - `store_vectors()` - stores chunks in Qdrant
 - `store_graph()` - stores nodes in TypeDB
+- `process_item()` - runs the per-document pipeline
 - `dump_nodes()` and `load_nodes()` - serialize and replay graph nodes
 - `replay_nodes()` - loads dumped nodes and writes them to TypeDB
 

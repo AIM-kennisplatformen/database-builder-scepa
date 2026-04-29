@@ -17,6 +17,6 @@ Example flow:
 
 ```python
 nodes = MetadataNodeExporter().export([metadata])
-dump_nodes(nodes, config["pdf_path"] / f"{item_key}_nodes.json")
-store_graph(nodes, config)
+dump_nodes(nodes, settings.pdf_path / f"{item_key}_nodes.json")
+store_graph(nodes, typedb)
 ```

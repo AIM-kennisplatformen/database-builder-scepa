@@ -6,24 +6,22 @@ Contributions are always welcome, this page gives a practical summary of the rul
 
 The following rules are enforced for all developers of this library:
 
-- Code has to be merged using a pull-request with atleast one review. Codebranch rules enforce this and will block any pushes to main.
-- Don't add or change dependencies in the pyproject.toml without discussing with the team leads. As dependencies in python are brittle and might break things further down the line.
-- It is fine to use copilot to generate summary in pull-request, but also add manually the why on some of the decisions made.
-- Discuss any refactors before opening a pull-request. Big non-discussed refactor pull requests will be closed immediately.
+- Code must be merged through a pull request with at least one review. Branch rules enforce this and block pushes to `main`.
+- Do not add or change dependencies in `pyproject.toml` without discussing it with the team leads. Python dependencies can be brittle and may break other parts of the project.
+- It is fine to use Copilot to generate a pull request summary, but also add the reasoning behind key decisions manually.
+- Discuss any refactors before opening a pull request. Large non-discussed refactors will be closed immediately.
 
 ## CI checks
 
 We have the following checks:
 
-- All python tests should pass
-
-- All typecheck errors should be resolved
-
-- Code should be linted using Ruff
+- All Python tests should pass.
+- All typecheck errors should be resolved.
+- Code should be linted using Ruff.
 
 ## Developer commands
 
-Our pixi config contains some developer convenience commands;
+The Pixi config includes these convenience commands:
 
 ### Running unit-tests
 
