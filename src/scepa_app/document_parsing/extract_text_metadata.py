@@ -1,14 +1,50 @@
 from __future__ import annotations
 
-from typing import Optional, List
 import json
 import re
+from typing import Any, Optional
 
-from docling_core.types.doc import SectionHeaderItem, TextItem
+from docling_core.types.doc.document import SectionHeaderItem, TextItem
 from pypdf import PdfReader
 
 from .text_metadata import TextMetadata, Acknowledgement
 from database_builder_libs.utility.extract.document_parser_docling import ParsedDocument
+
+
+FIRST_LINES_LIMIT = 120
+HEADER_SCAN_LIMIT = 10
+LLM_HEADER_LINES = 60
+SUMMARY_SECTION_LIMIT = 4
+TITLE_MIN_LENGTH = 8
+TITLE_MIN_WORDS = 2
+PDF_METADATA_JUNK = {"unknown", "untitled", "microsoft word", "writer", "author"}
+
+LLM_PROMPT_TEMPLATE = """
+Extract metadata from the document header.
+
+Return JSON.
+
+{{
+"authors": ["First Last"],
+"acknowledgements": [
+{{
+"name": "Entity",
+"type": "person | organization | group",
+"relation": "funding | collaboration | contribution | review | support"
+}}
+]
+}}
+
+Rules:
+
+- Authors must be personal names.
+- Ignore job titles.
+- Ignore copyright text.
+- Extract acknowledgement entities.
+
+Text:
+{text}
+"""
 
 
 class TextMetadataExtractor:
@@ -21,7 +57,7 @@ class TextMetadataExtractor:
         "samenvatting",
     )
 
-    def __init__(self, *, llm_client=None, llm_model="gpt-4.1-mini"):
+    def __init__(self, *, llm_client: Any | None = None, llm_model: str = "gpt-4.1-mini"):
         self.llm_client = llm_client
         self.llm_model = llm_model
 
@@ -34,12 +70,9 @@ class TextMetadataExtractor:
     ) -> TextMetadata:
         meta = meta or TextMetadata(source={})
 
-        if meta.source is None:
-            meta.source = {}
-
         self._fill_from_pdf_metadata(meta, pdf_path)
 
-        lines = self._first_lines(doc.doc, limit=120)
+        lines = self._first_lines(doc.doc, limit=FIRST_LINES_LIMIT)
 
         if meta.title is None:
             title = self._first_section_header(doc.doc) or self._first_reasonable_line(lines)
@@ -67,7 +100,7 @@ class TextMetadataExtractor:
                 meta.source.setdefault("summary", "docling_heuristic")
 
         if meta.authors is None:
-            for line in lines[:10]:
+            for line in lines[:HEADER_SCAN_LIMIT]:
                 parsed = self.parse_author_line(line)
 
                 if len(parsed) >= 2:
@@ -76,8 +109,8 @@ class TextMetadataExtractor:
                     break
 
         return meta
-    
-    def _fill_from_pdf_metadata(self, meta: TextMetadata, pdf_path: str):
+
+    def _fill_from_pdf_metadata(self, meta: TextMetadata, pdf_path: str) -> None:
         """Populate metadata fields from embedded PDF metadata."""
 
         try:
@@ -113,7 +146,7 @@ class TextMetadataExtractor:
                 meta.authors = self._split_authors(author)
                 meta.source["authors"] = "pdf_metadata"
 
-    def parse_author_line(self, text: str) -> List[str]:
+    def parse_author_line(self, text: str) -> list[str]:
         """Parse abbreviated author lines like 'Smith J., Doe A.'."""
 
         text = text.replace(" and ", ",")
@@ -131,38 +164,12 @@ class TextMetadataExtractor:
 
         return authors
 
-    def _extract_llm(self, lines):
+    def _extract_llm(self, lines: list[str]) -> tuple[list[str] | None, list[Acknowledgement]]:
         """Use an LLM to extract authors and acknowledgement entities."""
 
         assert self.llm_client is not None
-        text = "\n".join(lines[:60])
-
-        prompt = f"""
-Extract metadata from the document header.
-
-Return JSON.
-
-{{
-"authors": ["First Last"],
-"acknowledgements": [
-{{
-"name": "Entity",
-"type": "person | organization | group",
-"relation": "funding | collaboration | contribution | review | support"
-}}
-]
-}}
-
-Rules:
-
-- Authors must be personal names.
-- Ignore job titles.
-- Ignore copyright text.
-- Extract acknowledgement entities.
-
-Text:
-{text}
-"""
+        text = "\n".join(lines[:LLM_HEADER_LINES])
+        prompt = LLM_PROMPT_TEMPLATE.format(text=text)
 
         try:
             res = self.llm_client.chat.completions.create(
@@ -195,7 +202,7 @@ Text:
         except Exception:
             return None, []
 
-    def _find_summary(self, doc):
+    def _find_summary(self, doc) -> str | None:
         """Extract the summary/abstract section from the document."""
 
         collecting = False
@@ -220,11 +227,11 @@ Text:
                     collected.append(t)
 
         if collected:
-            return "\n".join(collected[:4])
+            return "\n".join(collected[:SUMMARY_SECTION_LIMIT])
 
         return None
 
-    def _first_lines(self, doc, limit):
+    def _first_lines(self, doc, limit: int) -> list[str]:
         """Return the first N textual lines from the document."""
 
         out = []
@@ -250,7 +257,7 @@ Text:
 
         return out
 
-    def _first_section_header(self, doc):
+    def _first_section_header(self, doc) -> str | None:
         """Return the first section header that looks like a title."""
 
         for node, _ in doc.iterate_items():
@@ -264,10 +271,10 @@ Text:
 
         return None
 
-    def _first_reasonable_line(self, lines):
+    def _first_reasonable_line(self, lines: list[str]) -> str | None:
         """Return the first line that plausibly looks like a title."""
 
-        for ln in lines[:30]:
+        for ln in lines[:HEADER_SCAN_LIMIT * 3]:
 
             if self._looks_like_title(ln):
                 return ln
@@ -277,18 +284,18 @@ Text:
     def _looks_like_title(self, s: str) -> bool:
         """Heuristic to determine if a string resembles a title."""
 
-        if len(s) < 8:
+        if len(s) < TITLE_MIN_LENGTH:
             return False
 
         if "@" in s:
             return False
 
-        if len(s.split()) < 2:
+        if len(s.split()) < TITLE_MIN_WORDS:
             return False
 
         return True
 
-    def _clean_pdf_meta_string(self, value):
+    def _clean_pdf_meta_string(self, value: Any) -> str | None:
         """Clean noisy strings from PDF metadata."""
 
         if value is None:
@@ -299,14 +306,12 @@ Text:
         if not s:
             return None
 
-        junk = {"unknown", "untitled", "microsoft word", "writer", "author"}
-
-        if s.lower() in junk:
+        if s.lower() in PDF_METADATA_JUNK:
             return None
 
         return s
 
-    def _split_authors(self, s: str) -> List[str]:
+    def _split_authors(self, s: str) -> list[str]:
         """Split author lists into individual names."""
 
         if ";" in s:

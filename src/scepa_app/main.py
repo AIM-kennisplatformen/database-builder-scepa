@@ -4,12 +4,9 @@ from dataclasses import asdict
 from datetime import datetime
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
-
-from dotenv import load_dotenv
 
 from .document_parsing.extract_text_metadata import TextMetadataExtractor
 from .document_parsing.extract_text_metadata_zotero import ZoteroMetadataExtractor
@@ -17,6 +14,7 @@ from .document_parsing.extract_text_metadata_zotero import ZoteroMetadataExtract
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.node_util import print_nodes
 from .util.partial_sync import PartialSync
+from .settings import Settings, load_settings
 
 from database_builder_libs.sources.zotero_source import ZoteroSource
 from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
@@ -25,31 +23,6 @@ from database_builder_libs.utility.extract.document_parser_docling import Docume
 from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
 from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
 from database_builder_libs.models.node import EntityType, KeyAttribute, Node, NodeId
-
-load_dotenv()
-
-
-def require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value
-
-
-def load_config() -> dict:
-    return {
-        "pdf_path": Path(require_env("PDF_PATH")),
-        "openai_host": require_env("OPENAI_HOST"),
-        "openai_key": require_env("OPENAI_API_KEY"),
-        "embedding_model": require_env("OPENAI_EMBEDDING_MODEL"),
-        "typedb_uri": require_env("TYPEDB_URI"),
-        "typedb_database": require_env("TYPEDB_DATABASE"),
-        "typedb_schema": require_env("TYPEDB_SCHEMA_PATH"),
-        "zotero_library_id": require_env("ZOTERO_LIBRARY_ID"),
-        "zotero_api_key": require_env("ZOTERO_API_KEY"),
-        "zotero_collection_id": require_env("ZOTERO_COLLECTION_ID"),
-    }
-
 
 def dump_nodes(nodes: list[Node], path: Path) -> None:
     """Serialize nodes to a JSON file for later replay."""
@@ -79,14 +52,19 @@ def parse_document(pdf_path: Path) -> ParsedDocument:
     return DocumentParserDocling().parse(str(pdf_path))
 
 
-def extract_metadata(pdf_path: Path, doc: ParsedDocument, config: dict, zotero_item: dict[str, Any]):
+def extract_metadata(
+    pdf_path: Path,
+    doc: ParsedDocument,
+    settings: Settings,
+    zotero_item: dict[str, Any],
+):
     from openai import OpenAI
 
     zotero_meta = ZoteroMetadataExtractor().extract(zotero_entry=zotero_item)
 
     extractor = TextMetadataExtractor(
-        llm_client=OpenAI(base_url=config["openai_host"], api_key=config["openai_key"]),
-        llm_model="google/gemma-2-9b-it-fast",
+        llm_client=OpenAI(base_url=settings.openai_host, api_key=settings.openai_key),
+        llm_model=settings.llm_model,
     )
 
     return extractor.extract(
@@ -96,7 +74,11 @@ def extract_metadata(pdf_path: Path, doc: ParsedDocument, config: dict, zotero_i
     )
 
 
-def extract_chunks(doc: ParsedDocument, document_id: str, summary: str | None = None):
+def extract_chunks(
+    doc: ParsedDocument,
+    document_id: str,
+    summary: str | None = None,
+):
     return SummaryAndSectionsStrategy().chunk(
         doc.sections,
         document_id=document_id,
@@ -104,43 +86,50 @@ def extract_chunks(doc: ParsedDocument, document_id: str, summary: str | None = 
     )
 
 
-def embed_chunks(chunks, config):
+def embed_chunks(chunks, settings: Settings):
     return OpenAICompatibleChunkEmbedder(
-        base_url=config["openai_host"],
-        api_key=config["openai_key"],
-        model=config["embedding_model"],
+        base_url=settings.openai_host,
+        api_key=settings.openai_key,
+        model=settings.embedding_model,
     ).embed(chunks)
 
 
-def store_vectors(chunks):
+def connect_qdrant(settings: Settings) -> QdrantDatastore:
     qdrant = QdrantDatastore()
     qdrant.connect(
         {
-            "url": "http://localhost:6333",
-            "collection": "knowledge_base",
-            "vector_size": 4096,
+            "url": settings.qdrant_url,
+            "collection": settings.qdrant_collection,
+            "vector_size": settings.qdrant_vector_size,
         }
     )
+    return qdrant
+
+
+def store_vectors(chunks, qdrant: QdrantDatastore) -> None:
     qdrant.store_chunks(chunks)
 
 
-def store_graph(nodes, config):
+def connect_typedb(settings: Settings) -> TypeDbDatastore:
     typedb = TypeDbDatastore()
     typedb.connect(
         {
-            "uri": config["typedb_uri"],
-            "username": "admin",
-            "password": "password",
-            "database": config["typedb_database"],
-            "schema_path": config["typedb_schema"],
+            "uri": settings.typedb_uri,
+            "username": settings.typedb_username,
+            "password": settings.typedb_password,
+            "database": settings.typedb_database,
+            "schema_path": settings.typedb_schema,
         }
     )
-    for node in nodes:
-        typedb.store_node(node)
     return typedb
 
 
-def print_summary(metadata, sections, chunks):
+def store_graph(nodes, typedb: TypeDbDatastore) -> None:
+    for node in nodes:
+        typedb.store_node(node)
+
+
+def print_summary(metadata, sections, chunks) -> None:
     print("\nPipeline summary")
     print("----------------")
     print(f"Document metadata: {metadata}")
@@ -156,22 +145,59 @@ def print_summary(metadata, sections, chunks):
         print(c.text[:300].replace("\n", " "))
 
 
-def replay_nodes(json_path: Path, config: dict) -> None:
+def replay_nodes(json_path: Path, settings: Settings) -> None:
     """Load dumped nodes from disk and store them into TypeDB."""
     nodes = load_nodes(json_path)
-    store_graph(nodes, config)
+    typedb = connect_typedb(settings)
+    store_graph(nodes, typedb)
     print_nodes(nodes)
 
 
-def main():
-    config = load_config()
+def process_item(
+    item: dict[str, Any],
+    settings: Settings,
+    zot: ZoteroSource,
+    qdrant: QdrantDatastore,
+    typedb: TypeDbDatastore,
+) -> None:
+    item_key = item["key"]
+
+    zot.download_zotero_item(
+        item_id=item_key,
+        download_path=str(settings.pdf_path),
+    )
+
+    pdf_path = settings.pdf_path / f"{item_key}.pdf"
+
+    if not pdf_path.exists():
+        return
+
+    doc = parse_document(pdf_path)
+    metadata = extract_metadata(pdf_path, doc, settings, item)
+    chunks = extract_chunks(doc, document_id=item_key, summary=metadata.summary)
+    chunks = embed_chunks(chunks, settings)
+
+    store_vectors(chunks, qdrant)
+
+    nodes = MetadataNodeExporter().export([metadata])
+    dump_nodes(nodes, settings.pdf_path / f"{item_key}_nodes.json")
+    store_graph(nodes, typedb)
+
+    print_nodes(nodes)
+    print_summary(metadata, doc.sections, chunks)
+
+
+def main() -> None:
+    settings = load_settings()
+    qdrant = connect_qdrant(settings)
+    typedb = connect_typedb(settings)
 
     zot = ZoteroSource()
     zot.connect(
         {
-            "library_id": config["zotero_library_id"],
+            "library_id": settings.zotero_library_id,
             "library_type": "group",
-            "api_key": config["zotero_api_key"],
+            "api_key": settings.zotero_api_key,
         }
     )
 
@@ -183,54 +209,19 @@ def main():
     sync.finish_sync("Zotero", artifacts)
 
     metadata_items = zot.get_all_documents_metadata(
-        collection_id=config["zotero_collection_id"]
+        collection_id=settings.zotero_collection_id
     )
 
-    for item in metadata_items[:5]:
-        item_key = item["key"]
+    items = (
+        metadata_items
+        if settings.max_documents is None
+        else metadata_items[: settings.max_documents]
+    )
 
-        zot.download_zotero_item(
-            item_id=item_key,
-            download_path=config["pdf_path"],
-        )
-
-        pdf_path = config["pdf_path"] / f"{item_key}.pdf"
-
-        if not pdf_path.exists():
-            continue
-
-        doc = parse_document(pdf_path)
-
-        metadata = extract_metadata(pdf_path, doc, config, item)
-
-        chunks = extract_chunks(doc, document_id=item_key, summary=metadata.summary)
-
-        chunks = embed_chunks(chunks, config)
-
-        store_vectors(chunks)
-
-        nodes = MetadataNodeExporter().export([metadata])
-
-        dump_nodes(nodes, config["pdf_path"] / f"{item_key}_nodes.json")
-
-        typedb = store_graph(nodes, config)
-
-        print_nodes(nodes)
-
-        print_summary(metadata, doc.sections, chunks)
+    for item in items:
+        process_item(item, settings, zot, qdrant, typedb)
 
     print("\nRetrieved nodes from TypeDB")
-
-    typedb = TypeDbDatastore()
-    typedb.connect(
-        {
-            "uri": config["typedb_uri"],
-            "username": "admin",
-            "password": "password",
-            "database": config["typedb_database"],
-            "schema_path": config["typedb_schema"],
-        }
-    )
 
     retrieved = typedb.get_nodes("entity=textdocument&include=relations")
     print_nodes(retrieved)
@@ -238,6 +229,6 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--load":
-        replay_nodes(Path(sys.argv[2]), load_config())
+        replay_nodes(Path(sys.argv[2]), load_settings())
     else:
         main()

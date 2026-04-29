@@ -5,39 +5,40 @@ from typing import Any, List, Optional, TypedDict
 from .text_metadata import Institution, TextMetadata
 
 
+LITERATURE_TYPES = {"report", "policy brief", "thesis", "article"}
+
+TAG_PREFIX_MAP = {
+    "strategy:": "strategic_overview",
+    "target:": "target_groups",
+    "practice:": "best_practices",
+}
+
+INSTITUTION_HINTS = {
+    "university",
+    "institute",
+    "research",
+    "centre",
+    "center",
+    "group",
+    "foundation",
+    "association",
+    "agency",
+    "organisation",
+    "organization",
+    "network",
+}
+
+
 class KeywordExtraction(TypedDict):
-    keywords: Optional[List[str]]
-    literature_type: Optional[str]
-    strategic_overview: Optional[List[str]]
-    target_groups: Optional[List[str]]
-    best_practices: Optional[List[str]]
+    keywords: list[str] | None
+    literature_type: str | None
+    strategic_overview: list[str] | None
+    target_groups: list[str] | None
+    best_practices: list[str] | None
 
 
 class ZoteroMetadataExtractor:
     """Extract metadata from Zotero API entries."""
-
-    LITERATURE_TYPES = {"report", "policy brief", "thesis", "article"}
-
-    TAG_PREFIX_MAP = {
-        "strategy:": "strategic_overview",
-        "target:": "target_groups",
-        "practice:": "best_practices",
-    }
-
-    INSTITUTION_HINTS = {
-        "university",
-        "institute",
-        "research",
-        "centre",
-        "center",
-        "group",
-        "foundation",
-        "association",
-        "agency",
-        "organisation",
-        "organization",
-        "network",
-    }
 
     def extract(self, *, zotero_entry: dict[str, Any]) -> TextMetadata:
         """Convert a Zotero entry into a TextMetadata object."""
@@ -89,7 +90,7 @@ class ZoteroMetadataExtractor:
     def _extract_authors(self, data: dict[str, Any]) -> List[str]:
         """Extract personal authors from Zotero creators."""
 
-        authors: List[str] = []
+        authors: list[str] = []
 
         for creator in data.get("creators", []):
 
@@ -116,11 +117,11 @@ class ZoteroMetadataExtractor:
     def _extract_keywords(self, data: dict[str, Any]) -> KeywordExtraction:
         """Extract structured keyword information from Zotero tags."""
 
-        keywords: List[str] = []
-        strategic: List[str] = []
-        targets: List[str] = []
-        practices: List[str] = []
-        literature_type: Optional[str] = None
+        keywords: list[str] = []
+        strategic: list[str] = []
+        targets: list[str] = []
+        practices: list[str] = []
+        literature_type: str | None = None
 
         for tag in data.get("tags", []):
 
@@ -133,11 +134,11 @@ class ZoteroMetadataExtractor:
 
             t = value.lower()
 
-            if t in self.LITERATURE_TYPES:
+            if t in LITERATURE_TYPES:
                 literature_type = value
                 continue
 
-            for prefix, field in self.TAG_PREFIX_MAP.items():
+            for prefix, field in TAG_PREFIX_MAP.items():
                 if t.startswith(prefix):
 
                     cleaned = value[len(prefix):].strip()
@@ -165,4 +166,4 @@ class ZoteroMetadataExtractor:
         """Heuristic to filter out institutional authors."""
 
         n = name.lower()
-        return any(k in n for k in self.INSTITUTION_HINTS)
+        return any(k in n for k in INSTITUTION_HINTS)

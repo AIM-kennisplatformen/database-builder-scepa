@@ -1,192 +1,171 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable, List, Dict
+from typing import Iterable
 
-from database_builder_libs.models.node import (
-    Node,
-    NodeId,
-    EntityType,
-    KeyAttribute,
-)
+from database_builder_libs.models.node import EntityType, KeyAttribute, Node, NodeId
 
 from ..document_parsing.text_metadata import TextMetadata
 
 
+NOISE_TERMS = {
+    "interviewees",
+    "participants",
+    "attendees",
+    "reviewers",
+    "respondents",
+    "community members",
+    "staff",
+    "team",
+    "students",
+    "focus group",
+    "focus groups",
+    "survey participants",
+}
+
+KEYWORD_DOC_TYPES = {
+    "scientific literature": "discriminatingconcept-bol-scientific",
+    "survey": "discriminatingconcept-bol-surveys",
+    "project report": "discriminatingconcept-bol-projectreports",
+}
+
+KEYWORD_FUNCTIONS = {
+    "best practice": "best-practices",
+    "best practices": "best-practices",
+    "strategic overview": "strategic-overview",
+    "target group": "target-groups",
+    "target groups": "target-groups",
+}
+
+AUTHORSHIP_RELATION = "authorship"
+SCIENTIFIC_RELATION = "discriminatingconcept-bol-scientific"
+GREY_LITERATURE_RELATION = "discriminatingconcept-bol-greyliterature"
+TEXTDOCUMENT_ENTITY = "textdocument"
+PERSON_ENTITY = "person"
+PUBLISHING_INSTITUTION_ENTITY = "publishinginstitution"
+PERSON_KEY_ATTR = "person-key"
+NAME_KEY_ATTR = "namelike-name"
+HASH_KEY_ATTR = "hashvalue"
+
+
 class MetadataNodeExporter:
-
-    NOISE_TERMS = {
-        "interviewees","participants","attendees","reviewers",
-        "respondents","community members","staff","team",
-        "students","focus group","focus groups","survey participants",
-    }
-
-    # ─────────────────────────────────────────────
-    # KEYWORD MAPPINGS
-    # ─────────────────────────────────────────────
-
-    KEYWORD_DOC_TYPES = {
-        "scientific literature": "discriminatingconcept-bol-scientific",
-        "survey": "discriminatingconcept-bol-surveys",
-        "project report": "discriminatingconcept-bol-projectreports",
-    }
-
-    KEYWORD_FUNCTIONS = {
-        "best practice": "best-practices",
-        "best practices": "best-practices",
-        "strategic overview": "strategic-overview",
-        "target group": "target-groups",
-        "target groups": "target-groups",
-    }
-
-    # ─────────────────────────────────────────────
-    # MAIN EXPORT
-    # ─────────────────────────────────────────────
-
-    def export(self, metadata_list: Iterable[TextMetadata]) -> List[Node]:
-
-        nodes: Dict[str, Node] = {}
+    def export(self, metadata_list: Iterable[TextMetadata]) -> list[Node]:
+        nodes: dict[str, Node] = {}
 
         for meta in metadata_list:
-
             doc_hash = self._hash(meta)
-            relations = []
-
-            # ───────── AUTHORS
+            relations: list[dict[str, object]] = []
 
             for author in meta.authors or []:
-
                 key = self._person_key(author)
                 nodes.setdefault(key, self._person_node(author))
 
-                relations.append({
-                    "type": "authorship",
-                    "roles": {
-                        "author": {
-                            "entity_type": "person",
-                            "key_attr": "person-key",
-                            "key": key,
+                relations.append(
+                    {
+                        "type": AUTHORSHIP_RELATION,
+                        "roles": {
+                            "author": {
+                                "entity_type": PERSON_ENTITY,
+                                "key_attr": PERSON_KEY_ATTR,
+                                "key": key,
+                            },
+                            "authoredwork": {
+                                "entity_type": TEXTDOCUMENT_ENTITY,
+                                "key_attr": HASH_KEY_ATTR,
+                                "key": doc_hash,
+                            },
                         },
-                        "authoredwork": {
-                            "entity_type": "textdocument",
-                            "key_attr": "hashvalue",
-                            "key": doc_hash,
+                        "attributes": {
+                            "authorship-id": hashlib.sha256(
+                                f"{key}|{doc_hash}".encode()
+                            ).hexdigest()
                         },
-                    },
-                    "attributes": {
-                        "authorship-id": hashlib.sha256(
-                            f"{key}|{doc_hash}".encode()
-                        ).hexdigest()
-                    },
-                })
-
-            # ───────── ACKNOWLEDGEMENTS
+                    }
+                )
 
             for ack in meta.acknowledgements or []:
-
                 if self._is_noise(ack.name):
                     continue
 
-                nodes.setdefault(
-                    ack.name,
-                    self._institution_node(ack.name)
+                nodes.setdefault(ack.name, self._institution_node(ack.name))
+
+                relations.append(
+                    {
+                        "type": SCIENTIFIC_RELATION,
+                        "roles": {
+                            "attributedto": {
+                                "entity_type": PUBLISHING_INSTITUTION_ENTITY,
+                                "key_attr": NAME_KEY_ATTR,
+                                "key": ack.name,
+                            },
+                            "attributedthing": {
+                                "entity_type": TEXTDOCUMENT_ENTITY,
+                                "key_attr": HASH_KEY_ATTR,
+                                "key": doc_hash,
+                            },
+                        },
+                        "attributes": {"function": ack.relation},
+                    }
                 )
 
-                relations.append({
-                    "type": "discriminatingconcept-bol-scientific",
-                    "roles": {
-                        "attributedto": {
-                            "entity_type": "publishinginstitution",
-                            "key_attr": "namelike-name",
-                            "key": ack.name,
-                        },
-                        "attributedthing": {
-                            "entity_type": "textdocument",
-                            "key_attr": "hashvalue",
-                            "key": doc_hash,
-                        },
-                    },
-                    "attributes": {
-                        "function": ack.relation
-                    }
-                })
-
-            # ───────── KEYWORD PROCESSING
-
             doc_type = None
-            semantic_functions = set()
+            semantic_functions: set[str] = set()
 
             for tag in meta.keywords or []:
+                normalized = self._normalize(tag)
 
-                t = self._normalize(tag)
-
-                # detect document type
-                for keyword, dtype in self.KEYWORD_DOC_TYPES.items():
-                    if keyword in t:
+                for keyword, dtype in KEYWORD_DOC_TYPES.items():
+                    if keyword in normalized:
                         doc_type = dtype
 
-                # detect semantic classification
-                for keyword, func in self.KEYWORD_FUNCTIONS.items():
-                    if keyword in t:
+                for keyword, func in KEYWORD_FUNCTIONS.items():
+                    if keyword in normalized:
                         semantic_functions.add(func)
 
-            # add semantic relations
             for func in semantic_functions:
-
-                relations.append({
-                    "type": "discriminatingconcept-bol-scientific",
-                    "roles": {
-                        "attributedthing": {
-                            "entity_type": "textdocument",
-                            "key_attr": "hashvalue",
-                            "key": doc_hash,
-                        }
-                    },
-                    "attributes": {
-                        "function": func
+                relations.append(
+                    {
+                        "type": SCIENTIFIC_RELATION,
+                        "roles": {
+                            "attributedthing": {
+                                "entity_type": TEXTDOCUMENT_ENTITY,
+                                "key_attr": HASH_KEY_ATTR,
+                                "key": doc_hash,
+                            }
+                        },
+                        "attributes": {"function": func},
                     }
-                })
-
-            # ───────── FALLBACK CLASSIFICATION
+                )
 
             if doc_type is None:
-
                 if meta.keywords:
-                    doc_type = "discriminatingconcept-bol-scientific"
-
+                    doc_type = SCIENTIFIC_RELATION
                 elif meta.acknowledgements:
-                    doc_type = "discriminatingconcept-bol-greyliterature"
+                    doc_type = GREY_LITERATURE_RELATION
 
             if doc_type:
-
-                relations.append({
-                    "type": doc_type,
-                    "roles": {
-                        "attributedthing": {
-                            "entity_type": "textdocument",
-                            "key_attr": "hashvalue",
-                            "key": doc_hash,
-                        }
+                relations.append(
+                    {
+                        "type": doc_type,
+                        "roles": {
+                            "attributedthing": {
+                                "entity_type": TEXTDOCUMENT_ENTITY,
+                                "key_attr": HASH_KEY_ATTR,
+                                "key": doc_hash,
+                            }
+                        },
                     }
-                })
-
-            # ───────── DOCUMENT NODE
+                )
 
             nodes[doc_hash] = Node(
                 id=NodeId(doc_hash),
-                entity_type=EntityType("textdocument"),
-                key_attribute=KeyAttribute("hashvalue"),
-                payload_data={
-                    "namelike-title": meta.title
-                } if meta.title else {},
+                entity_type=EntityType(TEXTDOCUMENT_ENTITY),
+                key_attribute=KeyAttribute(HASH_KEY_ATTR),
+                payload_data={"namelike-title": meta.title} if meta.title else {},
                 relations=tuple(relations),
             )
 
         return list(nodes.values())
-
-    # ─────────────────────────────────────────────
-    # HELPERS
-    # ─────────────────────────────────────────────
 
     def _normalize(self, text: str) -> str:
         return text.strip().lower()
@@ -195,25 +174,14 @@ class MetadataNodeExporter:
         return name.strip().lower().replace(" ", "_")
 
     def _is_noise(self, name: str) -> bool:
-        n = name.lower()
-        return len(n) < 3 or any(term in n for term in self.NOISE_TERMS)
+        normalized = name.lower()
+        return len(normalized) < 3 or any(term in normalized for term in NOISE_TERMS)
 
     def _hash(self, meta: TextMetadata) -> str:
-
-        parts = [
-            meta.title or "",
-            ",".join(meta.authors or []),
-            meta.summary or "",
-        ]
-
+        parts = [meta.title or "", ",".join(meta.authors or []), meta.summary or ""]
         return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
-    # ─────────────────────────────────────────────
-    # NODE BUILDERS
-    # ─────────────────────────────────────────────
-
     def _person_node(self, name: str) -> Node:
-
         key = self._person_key(name)
         parts = name.split(" ", 1)
 
@@ -224,18 +192,17 @@ class MetadataNodeExporter:
 
         return Node(
             id=NodeId(key),
-            entity_type=EntityType("person"),
-            key_attribute=KeyAttribute("person-key"),
+            entity_type=EntityType(PERSON_ENTITY),
+            key_attribute=KeyAttribute(PERSON_KEY_ATTR),
             payload_data=payload,
             relations=(),
         )
 
     def _institution_node(self, name: str) -> Node:
-
         return Node(
             id=NodeId(name),
-            entity_type=EntityType("publishinginstitution"),
-            key_attribute=KeyAttribute("namelike-name"),
+            entity_type=EntityType(PUBLISHING_INSTITUTION_ENTITY),
+            key_attribute=KeyAttribute(NAME_KEY_ATTR),
             payload_data={"namelike-name": name},
             relations=(),
         )

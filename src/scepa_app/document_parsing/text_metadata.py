@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional
 
 
+MetadataSource = dict[str, str]
 
 @dataclass(slots=True)
 class Institution:
@@ -19,17 +20,17 @@ class Acknowledgement:
 @dataclass(slots=True)
 class TextMetadata:
     title: Optional[str] = None
-    authors: Optional[List[str]] = None
+    authors: list[str] | None = None
     publishing_institute: Optional[Institution] = None
     summary: Optional[str] = None
 
-    acknowledgements: List[Acknowledgement] = field(default_factory=list)
+    acknowledgements: list[Acknowledgement] = field(default_factory=list)
 
-    source: dict[str, str] = field(default_factory=dict)
+    source: MetadataSource = field(default_factory=dict)
 
-    keywords: Optional[List[str]] = None
+    keywords: list[str] | None = None
 
     literature_type: Optional[str] = None
-    strategic_overview: Optional[List[str]] = None
-    target_groups: Optional[List[str]] = None
-    best_practices: Optional[List[str]] = None
+    strategic_overview: list[str] | None = None
+    target_groups: list[str] | None = None
+    best_practices: list[str] | None = None

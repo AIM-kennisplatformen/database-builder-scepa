@@ -1,9 +1,31 @@
-from typing import List, cast
+from __future__ import annotations
+
+from typing import Any
+
 from database_builder_libs.models.node import Node
-from database_builder_libs.stores.typedb.typedb_store import RelationData
+
+
+def _format_relation(rel: dict[str, Any]) -> list[str]:
+    lines = [f"  type: {rel['type']}"]
+
+    roles = rel.get("roles", {})
+    if isinstance(roles, dict):
+        for role, ref in roles.items():
+            if isinstance(ref, dict):
+                lines.append(
+                    f"    {role} -> {ref['entity_type']}({ref['key_attr']}={ref['key']})"
+                )
+
+    attributes = rel.get("attributes", {})
+    if isinstance(attributes, dict):
+        for attr, value in attributes.items():
+            lines.append(f"    {attr}: {value}")
+
+    return lines
+
 
 def format_node(node: Node) -> str:
-    lines = []
+    lines: list[str] = []
     lines.append("=" * 70)
     lines.append(f"Entity Type : {node.entity_type}")
     lines.append(f"Node ID     : {node.id}")
@@ -17,20 +39,7 @@ def format_node(node: Node) -> str:
         lines.append("Relations:")
 
         for rel in node.relations:
-            rel = cast(RelationData, rel)
-
-            lines.append(f"  type: {rel['type']}")
-
-            # roles
-            for role, ref in rel.get("roles", {}).items():
-                lines.append(
-                    f"    {role} -> "
-                    f"{ref['entity_type']}({ref['key_attr']}={ref['key']})"
-                )
-
-            # attributes
-            for attr, value in rel.get("attributes", {}).items():
-                lines.append(f"    {attr}: {value}")
+            lines.extend(_format_relation(rel))
 
     else:
         lines.append("Relations: none")
@@ -38,6 +47,6 @@ def format_node(node: Node) -> str:
     return "\n".join(lines)
 
 
-def print_nodes(nodes: List[Node]):
+def print_nodes(nodes: list[Node]) -> None:
     for node in nodes:
         print(format_node(node))
