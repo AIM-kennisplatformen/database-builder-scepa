@@ -19,10 +19,18 @@ from .settings import Settings, load_settings
 from database_builder_libs.sources.zotero_source import ZoteroSource
 from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
 from database_builder_libs.stores.typedb.typedb_store import TypeDbDatastore
-from database_builder_libs.utility.extract.document_parser_docling import DocumentParserDocling, ParsedDocument
-from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
-from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
+from database_builder_libs.utility.extract.document_parser_docling import (
+    DocumentParserDocling,
+    ParsedDocument,
+)
+from database_builder_libs.utility.chunk.summary_and_sections import (
+    SummaryAndSectionsStrategy,
+)
+from database_builder_libs.utility.embed_chunk.openai_compatible import (
+    OpenAICompatibleChunkEmbedder,
+)
 from database_builder_libs.models.node import EntityType, KeyAttribute, Node, NodeId
+
 
 def dump_nodes(nodes: list[Node], path: Path) -> None:
     """Serialize nodes to a JSON file for later replay."""

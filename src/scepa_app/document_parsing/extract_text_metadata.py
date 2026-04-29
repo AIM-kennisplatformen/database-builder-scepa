@@ -57,7 +57,9 @@ class TextMetadataExtractor:
         "samenvatting",
     )
 
-    def __init__(self, *, llm_client: Any | None = None, llm_model: str = "gpt-4.1-mini"):
+    def __init__(
+        self, *, llm_client: Any | None = None, llm_model: str = "gpt-4.1-mini"
+    ):
         self.llm_client = llm_client
         self.llm_model = llm_model
 
@@ -75,7 +77,9 @@ class TextMetadataExtractor:
         lines = self._first_lines(doc.doc, limit=FIRST_LINES_LIMIT)
 
         if meta.title is None:
-            title = self._first_section_header(doc.doc) or self._first_reasonable_line(lines)
+            title = self._first_section_header(doc.doc) or self._first_reasonable_line(
+                lines
+            )
 
             if title:
                 meta.title = title
@@ -164,7 +168,9 @@ class TextMetadataExtractor:
 
         return authors
 
-    def _extract_llm(self, lines: list[str]) -> tuple[list[str] | None, list[Acknowledgement]]:
+    def _extract_llm(
+        self, lines: list[str]
+    ) -> tuple[list[str] | None, list[Acknowledgement]]:
         """Use an LLM to extract authors and acknowledgement entities."""
 
         assert self.llm_client is not None
@@ -209,7 +215,6 @@ class TextMetadataExtractor:
         collected = []
 
         for node, _ in doc.iterate_items():
-
             if isinstance(node, SectionHeaderItem):
                 h = (node.text or "").strip().lower()
 
@@ -237,16 +242,13 @@ class TextMetadataExtractor:
         out = []
 
         for node, _ in doc.iterate_items():
-
             if isinstance(node, (SectionHeaderItem, TextItem)):
-
                 t = (node.text or "").strip()
 
                 if not t:
                     continue
 
                 for ln in t.splitlines():
-
                     ln = ln.strip()
 
                     if ln:
@@ -261,9 +263,7 @@ class TextMetadataExtractor:
         """Return the first section header that looks like a title."""
 
         for node, _ in doc.iterate_items():
-
             if isinstance(node, SectionHeaderItem):
-
                 t = (node.text or "").strip()
 
                 if self._looks_like_title(t):
@@ -274,8 +274,7 @@ class TextMetadataExtractor:
     def _first_reasonable_line(self, lines: list[str]) -> str | None:
         """Return the first line that plausibly looks like a title."""
 
-        for ln in lines[:HEADER_SCAN_LIMIT * 3]:
-
+        for ln in lines[: HEADER_SCAN_LIMIT * 3]:
             if self._looks_like_title(ln):
                 return ln
 

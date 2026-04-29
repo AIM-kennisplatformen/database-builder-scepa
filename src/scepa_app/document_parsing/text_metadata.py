@@ -4,6 +4,7 @@ from typing import Optional
 
 MetadataSource = dict[str, str]
 
+
 @dataclass(slots=True)
 class Institution:
     name: str

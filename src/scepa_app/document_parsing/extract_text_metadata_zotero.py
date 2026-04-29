@@ -93,7 +93,6 @@ class ZoteroMetadataExtractor:
         authors: list[str] = []
 
         for creator in data.get("creators", []):
-
             if creator.get("creatorType") != "author":
                 continue
 
@@ -124,7 +123,6 @@ class ZoteroMetadataExtractor:
         literature_type: str | None = None
 
         for tag in data.get("tags", []):
-
             if not isinstance(tag, dict):
                 continue
 
@@ -140,8 +138,7 @@ class ZoteroMetadataExtractor:
 
             for prefix, field in TAG_PREFIX_MAP.items():
                 if t.startswith(prefix):
-
-                    cleaned = value[len(prefix):].strip()
+                    cleaned = value[len(prefix) :].strip()
 
                     if field == "strategic_overview":
                         strategic.append(cleaned)

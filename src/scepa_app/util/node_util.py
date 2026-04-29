@@ -1,23 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import cast
 
 from database_builder_libs.models.node import Node
 
 
-def _format_relation(rel: dict[str, Any]) -> list[str]:
+def _format_relation(rel: Mapping[str, object]) -> list[str]:
     lines = [f"  type: {rel['type']}"]
 
     roles = rel.get("roles", {})
-    if isinstance(roles, dict):
+    if isinstance(roles, Mapping):
         for role, ref in roles.items():
-            if isinstance(ref, dict):
+            if isinstance(ref, Mapping):
+                ref = cast(dict[str, object], ref)
                 lines.append(
                     f"    {role} -> {ref['entity_type']}({ref['key_attr']}={ref['key']})"
                 )
 
     attributes = rel.get("attributes", {})
-    if isinstance(attributes, dict):
+    if isinstance(attributes, Mapping):
+        attributes = cast(dict[str, object], attributes)
         for attr, value in attributes.items():
             lines.append(f"    {attr}: {value}")
 
