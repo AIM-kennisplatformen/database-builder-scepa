@@ -4,12 +4,13 @@ from scepa_app.settings import load_settings
 
 
 def test_load_settings_reads_required_env(monkeypatch):
-    monkeypatch.setattr("scepa_app.settings.load_dotenv", lambda: None)
+    monkeypatch.setattr("scepa_app.settings.load_dotenv", lambda *args, **kwargs: None)
 
     values = {
         "PDF_PATH": "/tmp/pdfs",
         "OPENAI_HOST": "http://openai.local",
         "OPENAI_API_KEY": "secret",
+        "OPENAI_LLM_MODEL": "llm-model",
         "OPENAI_EMBEDDING_MODEL": "embed-model",
         "TYPEDB_URI": "typedb://localhost:1729",
         "TYPEDB_DATABASE": "database",
@@ -17,11 +18,10 @@ def test_load_settings_reads_required_env(monkeypatch):
         "ZOTERO_LIBRARY_ID": "123",
         "ZOTERO_API_KEY": "zotero-secret",
         "ZOTERO_COLLECTION_ID": "abc",
-        "LLM_MODEL": "llm-model",
-        "QDRANT_URL": "http://qdrant.local:6333",
+        "QDRANT_URI": "http://qdrant.local:6333",
         "QDRANT_COLLECTION": "knowledge_base",
-        "QDRANT_VECTOR_SIZE": "4096",
-        "TYPEDB_USERNAME": "admin",
+        "EMBEDDING_VECTOR_SIZE": "4096",
+        "TYPEDB_USER": "admin",
         "TYPEDB_PASSWORD": "password",
         "MAX_DOCUMENTS": "12",
     }
