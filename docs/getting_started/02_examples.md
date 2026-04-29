@@ -11,28 +11,29 @@ The most useful functions to read first are:
 
 - `main()` - runs the full pipeline
 - `load_config()` - reads required environment variables
-- `parse_document()` - parses a PDF into a structured document
-- `extract_metadata()` - merges Zotero metadata with document metadata
-- `extract_chunks()` - builds chunks from parsed sections
+- `build_zotero_source()` - connects to Zotero
+- `build_pdf_source()` - configures PDF parsing and extraction
 - `store_vectors()` and `store_graph()` - persist the results
 
 Then look at the supporting modules:
 
-- `TextMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata.py`
-- `ZoteroMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
+- `extract_zotero_metadata()` in `src/scepa_app/util/metadata_util.py`
+- `merge_zotero_into_content()` in `src/scepa_app/util/metadata_util.py`
+- `sanitize_metadata()` / `normalize_metadata()` in `src/scepa_app/util/metadata_util.py`
 - `MetadataNodeExporter.export()` in `src/scepa_app/graph/graph_from_metadata.py`
 
 Example pipeline:
 
 ```python
 config = load_config()
-doc = parse_document(pdf_path)
-metadata = extract_metadata(pdf_path, doc, config, zotero_item)
-chunks = extract_chunks(doc, document_id=item_key, summary=metadata.summary)
-chunks = embed_chunks(chunks, config)
+zot = build_zotero_source(config)
+pdf_src = build_pdf_source(config, zotero_fields)
+contents = pdf_src.get_content([(pdf_path.name, modified_at)])
+content = merge_zotero_into_content(contents[0], zotero_fields)
+chunks = content.content["chunks"]
 store_vectors(chunks)
 
-nodes = MetadataNodeExporter().export([metadata])
+nodes = MetadataNodeExporter().export([content])
 dump_nodes(nodes, config["pdf_path"] / f"{item_key}_nodes.json")
 store_graph(nodes, config)
 ```
@@ -41,7 +42,7 @@ store_graph(nodes, config)
 
 - [Working with Zotero Source](#working-with-zotero-source)
 - [Working with PDF Source](#working-with-pdf-source)
-- [Document Parsing](#document-parsing)
+- [Metadata Handling](#metadata-handling)
 - [Chunking Strategies](#chunking-strategies)
 - [Using Vector Stores (Qdrant)](#using-vector-stores-qdrant)
 - [Using TypeDB Store](#using-typedb-store)

@@ -6,12 +6,15 @@ The most useful functions to inspect first are:
 
 - `load_settings()` - reads the connection settings from environment variables
 - `main()` - connects to Zotero, downloads PDFs, and starts the processing pipeline
-- `extract_metadata()` - combines Zotero metadata with document-level extraction
+- `build_zotero_source()` - connects to Zotero
+- `build_qdrant()` / `build_typedb()` - connect the storage backends
+- `build_pdf_source()` - configures PDF extraction and chunking
 
-For source-specific metadata, also read:
+For metadata handling, also read:
 
-- `ZoteroMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
-- `TextMetadataExtractor.extract()` in `src/scepa_app/document_parsing/extract_text_metadata.py`
+- `extract_zotero_metadata()` in `src/scepa_app/util/metadata_util.py`
+- `merge_zotero_into_content()` in `src/scepa_app/util/metadata_util.py`
+- `sanitize_metadata()` / `normalize_metadata()` in `src/scepa_app/util/metadata_util.py`
 
 Example flow:
 

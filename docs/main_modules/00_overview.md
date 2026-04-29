@@ -6,10 +6,9 @@ If you are reading the code for the first time, start with these entry points:
 
 1. `src/scepa_app/main.py`
 2. `src/scepa_app/settings.py`
-3. `src/scepa_app/document_parsing/extract_text_metadata.py`
-4. `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`
-5. `src/scepa_app/graph/graph_from_metadata.py`
-6. `src/scepa_app/util/partial_sync.py`
+3. `src/scepa_app/util/metadata_util.py`
+4. `src/scepa_app/graph/graph_from_metadata.py`
+5. `src/scepa_app/util/partial_sync.py`
 
 ## 1. Application flow
 
@@ -21,45 +20,25 @@ Look at these functions first:
 - `load_settings()` - reads required environment variables
 - `connect_qdrant()` - creates the vector store connection
 - `connect_typedb()` - creates the graph store connection
-- `parse_document()` - converts a PDF into a parsed document
-- `extract_metadata()` - combines Zotero data and document heuristics
-- `extract_chunks()` - creates chunks from parsed sections
-- `embed_chunks()` - adds vectors to the chunks
-- `store_vectors()` - stores chunks in Qdrant
-- `store_graph()` - stores nodes in TypeDB
-- `process_item()` - runs the per-document pipeline
-- `dump_nodes()` and `load_nodes()` - serialize and replay graph nodes
-- `replay_nodes()` - loads dumped nodes and writes them to TypeDB
+ - `build_zotero_source()` - connects to Zotero
+ - `build_qdrant()` - creates the vector store connection
+ - `build_typedb()` - creates the graph store connection
+ - `build_pdf_source()` - configures PDF parsing and extraction
+ - `store_vectors()` - stores chunks in Qdrant
+ - `store_graph()` - stores nodes in TypeDB
+ - `process_item()` - runs the legacy per-document pipeline
+ - `dump_nodes()` and `load_nodes()` - serialize and replay graph nodes
 
-## 2. Metadata extraction
+## 2. Metadata handling
 
-Look at `src/scepa_app/document_parsing/extract_text_metadata.py` next.
+Look at `src/scepa_app/util/metadata_util.py` next.
 
-The main method is:
+The main functions are:
 
-- `TextMetadataExtractor.extract()` - builds a `TextMetadata` object from a parsed document
-
-Helpful methods to read alongside it:
-
-- `_fill_from_pdf_metadata()` - uses embedded PDF metadata
-- `_extract_llm()` - optional LLM-based extraction for authors and acknowledgements
-- `_find_summary()` - finds the abstract or summary section
-- `parse_author_line()` - parses simple author lines from headers
-- `_first_lines()`, `_first_section_header()`, `_first_reasonable_line()` - title heuristics
-
-## 3. Zotero metadata
-
-Look at `src/scepa_app/document_parsing/extract_text_metadata_zotero.py`.
-
-The main method is:
-
-- `ZoteroMetadataExtractor.extract()` - converts a Zotero entry into `TextMetadata`
-
-Helpful methods to read alongside it:
-
-- `_extract_authors()` - filters Zotero creators down to personal authors
-- `_extract_keywords()` - splits tags into keywords and structured tag groups
-- `_is_institution_name()` - removes institutional authors
+- `extract_zotero_metadata()` - extracts the Zotero fields used by the app
+- `merge_zotero_into_content()` - overlays Zotero metadata onto parsed content
+- `sanitize_metadata()` - removes HTML and empty values before storage
+- `normalize_metadata()` - escapes metadata values for TypeQL storage
 
 ## 4. Metadata to graph
 
@@ -102,12 +81,5 @@ The main methods are:
 
 ## 7. Data models
 
-Look at `src/scepa_app/document_parsing/text_metadata.py`.
-
-The core dataclasses are:
-
-- `TextMetadata`
-- `Acknowledgement`
-- `Institution`
-
-These are the objects passed between the metadata extraction and graph export steps.
+The current pipeline passes plain metadata dictionaries and `Content` objects between the helper layers.
+The graph exporter converts those into nodes for storage.
