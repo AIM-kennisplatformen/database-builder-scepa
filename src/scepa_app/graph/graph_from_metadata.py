@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable
+from typing import Any, Iterable
 
+from database_builder_libs.models.abstract_source import Content
 from database_builder_libs.models.node import EntityType, KeyAttribute, Node, NodeId
-
-from ..document_parsing.text_metadata import TextMetadata
 
 
 NOISE_TERMS = {
@@ -49,17 +48,19 @@ HASH_KEY_ATTR = "hashvalue"
 
 
 class MetadataNodeExporter:
-    def export(self, metadata_list: Iterable[TextMetadata]) -> list[Node]:
+    def export(
+        self, content_list: Iterable[Content], doc_hash: str | None = None
+    ) -> list[Node]:
         nodes: dict[str, Node] = {}
 
-        for meta in metadata_list:
-            doc_hash = self._hash(meta)
+        for content in content_list:
+            meta = content.content.get("metadata", {})
+            current_hash = doc_hash or self._hash(meta)
             relations: list[dict[str, object]] = []
 
-            for author in meta.authors or []:
+            for author in meta.get("authors") or []:
                 key = self._person_key(author)
                 nodes.setdefault(key, self._person_node(author))
-
                 relations.append(
                     {
                         "type": AUTHORSHIP_RELATION,
@@ -72,23 +73,23 @@ class MetadataNodeExporter:
                             "authoredwork": {
                                 "entity_type": TEXTDOCUMENT_ENTITY,
                                 "key_attr": HASH_KEY_ATTR,
-                                "key": doc_hash,
+                                "key": current_hash,
                             },
                         },
                         "attributes": {
                             "authorship-id": hashlib.sha256(
-                                f"{key}|{doc_hash}".encode()
+                                f"{key}|{current_hash}".encode()
                             ).hexdigest()
                         },
                     }
                 )
 
-            for ack in meta.acknowledgements or []:
-                if self._is_noise(ack.name):
+            for ack in meta.get("acknowledgements") or []:
+                name = ack.get("name", "")
+                if self._is_noise(name):
                     continue
 
-                nodes.setdefault(ack.name, self._institution_node(ack.name))
-
+                nodes.setdefault(name, self._institution_node(name))
                 relations.append(
                     {
                         "type": SCIENTIFIC_RELATION,
@@ -96,28 +97,26 @@ class MetadataNodeExporter:
                             "attributedto": {
                                 "entity_type": PUBLISHING_INSTITUTION_ENTITY,
                                 "key_attr": NAME_KEY_ATTR,
-                                "key": ack.name,
+                                "key": name,
                             },
                             "attributedthing": {
                                 "entity_type": TEXTDOCUMENT_ENTITY,
                                 "key_attr": HASH_KEY_ATTR,
-                                "key": doc_hash,
+                                "key": current_hash,
                             },
                         },
-                        "attributes": {"function": ack.relation},
+                        "attributes": {"function": ack.get("relation")},
                     }
                 )
 
             doc_type = None
             semantic_functions: set[str] = set()
 
-            for tag in meta.keywords or []:
+            for tag in meta.get("keywords") or []:
                 normalized = self._normalize(tag)
-
                 for keyword, dtype in KEYWORD_DOC_TYPES.items():
                     if keyword in normalized:
                         doc_type = dtype
-
                 for keyword, func in KEYWORD_FUNCTIONS.items():
                     if keyword in normalized:
                         semantic_functions.add(func)
@@ -130,7 +129,7 @@ class MetadataNodeExporter:
                             "attributedthing": {
                                 "entity_type": TEXTDOCUMENT_ENTITY,
                                 "key_attr": HASH_KEY_ATTR,
-                                "key": doc_hash,
+                                "key": current_hash,
                             }
                         },
                         "attributes": {"function": func},
@@ -138,9 +137,9 @@ class MetadataNodeExporter:
                 )
 
             if doc_type is None:
-                if meta.keywords:
+                if meta.get("keywords"):
                     doc_type = SCIENTIFIC_RELATION
-                elif meta.acknowledgements:
+                elif meta.get("acknowledgements"):
                     doc_type = GREY_LITERATURE_RELATION
 
             if doc_type:
@@ -151,17 +150,19 @@ class MetadataNodeExporter:
                             "attributedthing": {
                                 "entity_type": TEXTDOCUMENT_ENTITY,
                                 "key_attr": HASH_KEY_ATTR,
-                                "key": doc_hash,
+                                "key": current_hash,
                             }
                         },
                     }
                 )
 
-            nodes[doc_hash] = Node(
-                id=NodeId(doc_hash),
+            nodes[current_hash] = Node(
+                id=NodeId(current_hash),
                 entity_type=EntityType(TEXTDOCUMENT_ENTITY),
                 key_attribute=KeyAttribute(HASH_KEY_ATTR),
-                payload_data={"namelike-title": meta.title} if meta.title else {},
+                payload_data={"namelike-title": meta.get("title")}
+                if meta.get("title")
+                else {},
                 relations=tuple(relations),
             )
 
@@ -177,18 +178,24 @@ class MetadataNodeExporter:
         normalized = name.lower()
         return len(normalized) < 3 or any(term in normalized for term in NOISE_TERMS)
 
-    def _hash(self, meta: TextMetadata) -> str:
-        parts = [meta.title or "", ",".join(meta.authors or []), meta.summary or ""]
+    def _hash(self, meta: dict[str, Any]) -> str:
+        parts = [
+            meta.get("title") or "",
+            ",".join(meta.get("authors") or []),
+            meta.get("summary") or "",
+        ]
         return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
     def _person_node(self, name: str) -> Node:
         key = self._person_key(name)
-        parts = name.split(" ", 1)
-
-        payload = {"namelike-first": parts[0]}
-
-        if len(parts) == 2:
-            payload["namelike-last"] = parts[1]
+        if "," in name:
+            last, _, first = name.partition(",")
+            payload = {"namelike-first": first.strip(), "namelike-last": last.strip()}
+        else:
+            parts = name.split(" ", 1)
+            payload = {"namelike-first": parts[0]}
+            if len(parts) == 2:
+                payload["namelike-last"] = parts[1]
 
         return Node(
             id=NodeId(key),

@@ -30,45 +30,57 @@ def _install_main_stubs() -> None:
     )
 
     class _TypeDbDatastore:
-        def connect(self, *_args, **_kwargs):
+        def connect(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
-        def store_node(self, *_args, **_kwargs):
+        def store_node(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
-        def get_nodes(self, *_args, **_kwargs):
+        def get_nodes(self, *args, **kwargs):
+            _ = args, kwargs
             return []
 
     class _QdrantDatastore:
-        def connect(self, *_args, **_kwargs):
+        def connect(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
-        def store_chunks(self, *_args, **_kwargs):
+        def store_chunks(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
     class _ZoteroSource:
-        def connect(self, *_args, **_kwargs):
+        def connect(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
-        def get_list_artefacts(self, *_args, **_kwargs):
+        def get_list_artefacts(self, *args, **kwargs):
+            _ = args, kwargs
             return []
 
-        def get_all_documents_metadata(self, *_args, **_kwargs):
+        def get_all_documents_metadata(self, *args, **kwargs):
+            _ = args, kwargs
             return []
 
-        def download_zotero_item(self, *_args, **_kwargs):
+        def download_zotero_item(self, *args, **kwargs):
+            _ = args, kwargs
             return None
 
     class _DocumentParserDocling:
-        def parse(self, *_args, **_kwargs):
+        def parse(self, *args, **kwargs):
+            _ = args, kwargs
             return SimpleNamespace(doc=SimpleNamespace(sections=[]))
 
     class _SummaryAndSectionsStrategy:
-        def chunk(self, *_args, **_kwargs):
+        def chunk(self, *args, **kwargs):
+            _ = args, kwargs
             return []
 
     class _OpenAICompatibleChunkEmbedder:
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *args, **kwargs):
+            _ = args, kwargs
             pass
 
         def embed(self, chunks):
@@ -89,7 +101,7 @@ def _load_main_module():
     return importlib.import_module("scepa_app.main")
 
 
-def _settings(tmp_path: Path) -> SimpleNamespace:
+def settings_factory(tmp_path: Path) -> SimpleNamespace:
     return SimpleNamespace(
         pdf_path=tmp_path,
         openai_host="http://openai.local",
@@ -136,7 +148,7 @@ def test_dump_and_load_nodes_roundtrip(tmp_path):
 
 def test_main_processes_only_configured_number_of_items(monkeypatch, tmp_path):
     main_module = _load_main_module()
-    settings = _settings(tmp_path)
+    settings = settings_factory(tmp_path)
 
     zot = Mock()
     zot.get_list_artefacts.return_value = []
