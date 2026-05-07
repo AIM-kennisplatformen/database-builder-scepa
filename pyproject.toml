@@ -16,10 +16,13 @@ dependencies = [
   "testcontainers",
   "qdrant-client",
   "docling>=2.73.0,<3",
-  "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git@d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635", 
+  "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git@d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635",
   "span-marker>=1.7.0,<2",
   "openai>=2.24.0,<3",
   "pypdf>=6.7.3,<7",
+  "mkdocs-material",
+  "mkdocs",
+  "mkdocstrings[python]>=0.18",
 ]
 
 [dependency-groups]
@@ -41,7 +44,7 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/backend", "src/database_builder_libs"]
+packages = ["src/scepa_app"]
 
 [tool.pixi.workspace]
 channels = [
@@ -79,6 +82,8 @@ format = "ruff format"
 typecheck = "ty check ."
 test = "pytest -s"
 app = "python -m src.scepa_app.main"
+docs = "mkdocs serve -a 0.0.0.0:10001"
+docs-build = "mkdocs build"
 
 [tool.pixi.activation.env]
 PYTHONNOUSERSITE = "1"
