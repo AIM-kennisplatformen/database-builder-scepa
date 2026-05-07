@@ -1,4 +1,4 @@
-site_name: Database-builder-scepa
+site_name: Database-builder-SCEPA
 theme:
   name: material
   palette:
@@ -103,19 +103,10 @@ plugins:
           show_inheritance_diagram: true
 nav:
 - index.md
-- Getting Started:
-  - getting_started/00_getting_started.md
-  - getting_started/01_learn_the_basics.md
-  - getting_started/02_examples.md
+- Overview: overview.md
 - Main Modules:
   - main_modules/00_overview.md
   - main_modules/01_connectors.md
   - main_modules/02_storage.md
   - main_modules/03_sync.md
-- Introduction:
-    - introduction/00_introduction.md
-    - introduction/01_faq.md
-    - introduction/02_repository.md
-
-- Contributing:
-  - contributing/rules.md
+  - main_modules/04_parsing_and_chunking.md

@@ -1,18 +1,14 @@
-# Database Builder scepa
+# Database Builder SCEPA
 
-Database Builder scepa is a Python library for building data ingestion and retrieval pipelines for knowledge graph-oriented applications.
+Database Builder SCEPA is a Python application for building data ingestion and retrieval pipelines for knowledge graph-oriented systems.
 
 ## Start here
 
-- [Introduction](introduction/00_introduction.md)
-- [FAQ](introduction/01_faq.md)
-- [Repository notes](introduction/02_repository.md)
+- [Overview](overview.md)
 
 ## Learn the workflow
 
-- [Getting started](getting_started/00_getting_started.md)
-- [Learn the basics](getting_started/01_learn_the_basics.md)
-- [Examples](getting_started/02_examples.md)
+- See examples in the [Main modules](main_modules/00_overview.md) section
 
 ## Explore the code
 
@@ -23,7 +19,7 @@ Database Builder scepa is a Python library for building data ingestion and retri
 
 ## Contributing
 
-- [Contribution rules](contributing/rules.md)
+- See [Overview](overview.md#contributing)
 
 ## License
 

@@ -13,7 +13,7 @@ Internal logic worth knowing:
 - `_init_db()` - creates the sync tables on first run
 - `_find_conflicts()` - detects items that changed differently across sources
 
-Example usage:
+## Example usage
 
 ```python
 from datetime import datetime
@@ -25,3 +25,7 @@ last_sync_dt = datetime.fromtimestamp(last_sync) if last_sync is not None else N
 artifacts = zot.get_list_artefacts(last_synced=last_sync_dt)
 sync.finish_sync("Zotero", artifacts)
 ```
+
+## Document parsing and chunking
+
+See [Parsing and chunking](04_parsing_and_chunking.md) for the Docling and chunking examples.
