@@ -219,3 +219,6 @@ PDF_INPUT/
 *.json
 
 .typedb-studio/
+
+/uploads/
+/test_documents/
