@@ -7,6 +7,8 @@ environments:
     - url: https://repo.prefix.dev/pytorch/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -89,7 +91,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d3/d6/ac63065d33dd700fee7ebd7d287332401b54e31b9346e142f871e1f0b116/cuda_pathfinder-1.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/57/b2/453099f5f3b698d7d0eab38916aac44c7f76229f451709e2eb9db6615dcd/cuda_toolkit-13.0.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/eb/12/678d16f7aa1996f947bf17b8cfb917ea9c9674ef5e2bd3690c04123d5680/cymem-2.0.13-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/c3/7f67dea8ccf8fdcb9c99033bbe3e90b9e7395415843accb81428c441be2d/debugpy-1.8.20-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -352,7 +354,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8d/e4/d66708bdf0d92fb4d49b22cdff4b10cec38aca5dcd7e81d909bb55c65cd7/confection-1.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f9/71/f0f8adee945524774b16af326bd314a14a478ed369a728a22834e6785a18/cymem-2.0.13-cp312-cp312-macosx_11_0_arm64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/c3/7f67dea8ccf8fdcb9c99033bbe3e90b9e7395415843accb81428c441be2d/debugpy-1.8.20-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -587,7 +589,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8d/e4/d66708bdf0d92fb4d49b22cdff4b10cec38aca5dcd7e81d909bb55c65cd7/confection-1.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/fe/3ee37d02ca4040f2fb22d34eb415198f955862b5dd47eee01df4c8f5454c/cymem-2.0.13-cp312-cp312-win_amd64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a1/39/2bef246368bd42f9bd7cba99844542b74b84dacbdbea0833e610f384fee8/debugpy-1.8.20-cp312-cp312-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -761,6 +763,8 @@ environments:
     - url: https://repo.prefix.dev/pytorch/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -843,7 +847,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d3/d6/ac63065d33dd700fee7ebd7d287332401b54e31b9346e142f871e1f0b116/cuda_pathfinder-1.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/57/b2/453099f5f3b698d7d0eab38916aac44c7f76229f451709e2eb9db6615dcd/cuda_toolkit-13.0.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/eb/12/678d16f7aa1996f947bf17b8cfb917ea9c9674ef5e2bd3690c04123d5680/cymem-2.0.13-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/c3/7f67dea8ccf8fdcb9c99033bbe3e90b9e7395415843accb81428c441be2d/debugpy-1.8.20-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -1106,7 +1110,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8d/e4/d66708bdf0d92fb4d49b22cdff4b10cec38aca5dcd7e81d909bb55c65cd7/confection-1.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f9/71/f0f8adee945524774b16af326bd314a14a478ed369a728a22834e6785a18/cymem-2.0.13-cp312-cp312-macosx_11_0_arm64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/c3/7f67dea8ccf8fdcb9c99033bbe3e90b9e7395415843accb81428c441be2d/debugpy-1.8.20-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -1341,7 +1345,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8d/e4/d66708bdf0d92fb4d49b22cdff4b10cec38aca5dcd7e81d909bb55c65cd7/confection-1.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/fe/3ee37d02ca4040f2fb22d34eb415198f955862b5dd47eee01df4c8f5454c/cymem-2.0.13-cp312-cp312-win_amd64.whl
-      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+      - pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
       - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a1/39/2bef246368bd42f9bd7cba99844542b74b84dacbdbea0833e610f384fee8/debugpy-1.8.20-cp312-cp312-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
@@ -2353,7 +2357,7 @@ packages:
   version: 2.0.13
   sha256: c9251d889348fe79a75e9b3e4d1b5fa651fca8a64500820685d73a3acc21b6a8
   requires_python: '>=3.9,<3.15'
-- pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635#d9839a7f5a9c9a4dcbc845d73e5dd0ab80c2b635
+- pypi: git+https://github.com/AIM-kennisplatformen/database-builder-libs.git?rev=23b73606dec2ea4314449a550d25ff18e05600be#23b73606dec2ea4314449a550d25ff18e05600be
   name: database-builder-libs
   version: 0.1.0
   requires_dist:
@@ -2376,7 +2380,7 @@ packages:
   - pypdf>=4.0.0
   - openai>=2.29.0,<3
   - transformers>=4.57.6,<5
-  requires_python: '>=3.11,<=3.12'
+  requires_python: '>=3.11,<=3.13'
 - pypi: https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl
   name: datasets
   version: 4.8.4
