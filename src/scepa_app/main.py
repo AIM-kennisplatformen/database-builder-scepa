@@ -33,10 +33,7 @@ from database_builder_libs.utility.embed_chunk.openai_compatible import (
     OpenAICompatibleChunkEmbedder,
 )
 
-if TYPE_CHECKING:
-    from database_builder_libs.models.node import Node
-    from database_builder_libs.sources.pdf_source import PDFSource
-
+from .util.zotero_citation_export import zotero_to_bibtex
 
 load_dotenv()
 
@@ -395,15 +392,15 @@ def main() -> None:
                 ",".join(meta.get("authors") or []),
                 meta.get("summary") or "",
             ]).encode()).hexdigest()
-                            citation = zotero_to_bibtex(zotero_content.content)  # or zotero_content.content once get_content works
+            citation = zotero_to_bibtex(zotero_content.content)  # or zotero_content.content once get_content works
 
             # Add document_hash to chunk metadata for traceability
             chunks = []
             for c in content.content["chunks"]:
                 c["metadata"] = c.get("metadata") or {}
                 c["metadata"]["document_hash"] = doc_hash
-                    c["metadata"]["zotero_pdf_name"] = pdf_path.name
-                    c["metadata"]["citation"] = citation
+                c["metadata"]["zotero_pdf_name"] = pdf_path.name
+                c["metadata"]["citation"] = citation
                 chunks.append(Chunk(**c))
 
             store_vectors(chunks, qdrant)
