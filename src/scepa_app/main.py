@@ -33,7 +33,7 @@ from database_builder_libs.utility.embed_chunk.openai_compatible import (
     OpenAICompatibleChunkEmbedder,
 )
 
-from .util.zotero_citation_export import zotero_to_bibtex
+from .util.citation_export import zotero_to_bibtex
 
 load_dotenv()
 
@@ -297,7 +297,6 @@ def main() -> None:
     failed_documents = []
     skipped_documents = []
 
-    # ✅ NEW: Get file type configuration
     accepted_file_types = get_file_types_for_config(config["accepted_file_types"])
     strict_mode = config["strict_file_types"]
     allow_fallback = not strict_mode
