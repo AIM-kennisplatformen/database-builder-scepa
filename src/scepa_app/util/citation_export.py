@@ -1,7 +1,7 @@
 """
 citation_export.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-Generates BibTeX entries from metadata item dicts.
+Generates BibTeX entries from document metadata dicts.
 
 Supports IEEE-style bibliography (IEEEtran.bst) for:
   - @article       — journalArticle, preprint, report, thesis
@@ -9,7 +9,7 @@ Supports IEEE-style bibliography (IEEEtran.bst) for:
   - @inproceedings — conferencePaper
   - @misc          — webpage, blogPost, document
 
-DOI-based fetch from doi.org is attempted first; Metadata
+DOI-based fetch from doi.org is attempted first; document metadata
 is used as fallback when the DOI is absent or the fetch fails.
 
 """
@@ -294,13 +294,15 @@ def zotero_to_bibtex(item: dict) -> str:
             address      = str(data.get("place") or ""),
         )
 
+    misc_common = {k: v for k, v in common.items() if k != "doi"}
+
     if item_type in ("webpage", "blogPost", "document"):
         raw_access = str(data.get("accessDate") or "")
         return _misc(
-            **common,
+            **misc_common,
             organization = str(data.get("publisher") or data.get("websiteTitle") or ""),
             accessed     = _format_access_date(raw_access) if raw_access else "",
         )
 
     # Fallback for any unrecognised item type
-    return _misc(**common)
+    return _misc(**misc_common)
