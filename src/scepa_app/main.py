@@ -341,6 +341,7 @@ def main() -> None:
         print()
 
         sync = PartialSync(db_path=config["sync_db_path"])
+        sync.connect()
         last_sync = sync.start_sync("Zotero")
         last_sync_dt = (
             datetime.fromtimestamp(last_sync) if last_sync is not None else None

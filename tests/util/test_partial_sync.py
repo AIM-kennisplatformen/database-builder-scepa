@@ -7,6 +7,7 @@ def test_partial_sync_uses_custom_db_path(tmp_path):
     db_path = tmp_path / "sync.db"
 
     sync = PartialSync(db_path=db_path)
+    sync.connect()
 
     try:
         last_sync = sync.start_sync("Zotero")
