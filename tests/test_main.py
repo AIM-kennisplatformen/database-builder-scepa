@@ -167,8 +167,8 @@ def test_main_processes_only_configured_number_of_items(monkeypatch, tmp_path):
     monkeypatch.setattr(main_module, "load_settings", lambda: settings)
     monkeypatch.setattr(main_module, "ZoteroSource", lambda: zot)
     monkeypatch.setattr(main_module, "PartialSync", lambda: sync)
-    monkeypatch.setattr(main_module, "connect_qdrant", lambda _settings: qdrant)
-    monkeypatch.setattr(main_module, "connect_typedb", lambda _settings: typedb)
+    monkeypatch.setattr(main_module, "connect_qdrant", lambda _: qdrant)
+    monkeypatch.setattr(main_module, "connect_typedb", lambda _: typedb)
     monkeypatch.setattr(main_module, "process_item", Mock())
     monkeypatch.setattr(main_module, "print_nodes", Mock())
 

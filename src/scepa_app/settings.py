@@ -25,6 +25,7 @@ class Settings(BaseModel):
     typedb_username: str
     typedb_password: str
     max_documents: int | None = None
+    sync_db_path: str | None = None
 
 
 def _first_env(*names: str) -> str | None:
@@ -74,5 +75,6 @@ def load_settings() -> Settings:
             "typedb_username": _required_env("TYPEDB_USER", "TYPEDB_USERNAME"),
             "typedb_password": _required_env("TYPEDB_PASSWORD"),
             "max_documents": int(max_documents) if max_documents else None,
+            "sync_db_path": os.getenv("SYNC_DB_PATH") or None,
         }
     )

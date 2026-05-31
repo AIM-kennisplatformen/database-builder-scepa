@@ -69,6 +69,7 @@ def load_config() -> dict:
         "qdrant_collection": require_env("QDRANT_COLLECTION"),
         "accepted_file_types": os.getenv("ACCEPTED_FILE_TYPES", "pdf,epub").split(","),
         "strict_file_types": os.getenv("STRICT_FILE_TYPES", "false").lower() == "true",
+        "sync_db_path": os.getenv("SYNC_DB_PATH") or None,
     }
 
 
@@ -339,7 +340,8 @@ def main() -> None:
         print(f"   Strict mode: {strict_mode} (fallback: {allow_fallback})")
         print()
 
-        sync = PartialSync()
+        sync = PartialSync(db_path=config["sync_db_path"])
+        sync.connect()
         last_sync = sync.start_sync("Zotero")
         last_sync_dt = (
             datetime.fromtimestamp(last_sync) if last_sync is not None else None

@@ -4,7 +4,7 @@ from scepa_app.settings import load_settings
 
 
 def test_load_settings_reads_required_env(monkeypatch):
-    monkeypatch.setattr("scepa_app.settings.load_dotenv", lambda *args, **kwargs: None)
+    monkeypatch.setattr("scepa_app.settings.load_dotenv", lambda *_, **__: None)
 
     values = {
         "PDF_PATH": "/tmp/pdfs",
