@@ -217,6 +217,11 @@ PDF_INPUT/
 
 *.db
 *.json
+!src/frontend/package.json
+!src/frontend/package-lock.json
+!src/frontend/tsconfig.json
+!src/frontend/tsconfig.app.json
+!src/frontend/tsconfig.node.json
 
 .typedb-studio/
 
