@@ -1,6 +1,6 @@
 # Sync System
 
-The sync helper lives in `src/scepa_app/util/partial_sync.py`.
+The sync helper is provided by `database_builder_libs.utility.sync` and re-exported through `src/scepa_app/util/partial_sync.py`.
 
 Start with these methods:
 
