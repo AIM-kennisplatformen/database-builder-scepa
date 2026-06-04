@@ -20,6 +20,7 @@ dependencies = [
   "span-marker>=1.7.0,<2",
   "openai>=2.24.0,<3",
   "pypdf>=6.7.3,<7",
+  "typedb-driver==3.8.1"
 ]
 
 [dependency-groups]
