@@ -4,7 +4,9 @@ citation_export.py
 Generates BibTeX entries from document metadata dicts.
 
 Supports IEEE-style bibliography (IEEEtran.bst) for:
-  - @article       — journalArticle, preprint, report, thesis
+  - @article       — journalArticle, preprint
+  - @techreport    — report
+  - @phdthesis     — thesis
   - @book          — book, bookSection
   - @inproceedings — conferencePaper
   - @misc          — webpage, blogPost, document
@@ -16,9 +18,19 @@ is used as fallback when the DOI is absent or the fetch fails.
 
 from __future__ import annotations
 
+import logging
 import re
 import requests
 from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
+
+# Fixed English month abbreviations so output is locale-independent.
+_MONTH_ABBR = {
+    1: "Jan.", 2: "Feb.", 3: "Mar.", 4: "Apr.", 5: "May", 6: "Jun.",
+    7: "Jul.", 8: "Aug.", 9: "Sep.", 10: "Oct.", 11: "Nov.", 12: "Dec.",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +48,8 @@ def _format_authors(authors: str | list[str]) -> str:
 
 
 def _make_key(title: str, year: str | int) -> str:
-    first_word = re.sub(r"[^a-zA-Z]", "", title.split()[0]) if title else "Unknown"
+    # Unicode-aware: keep alphabetic characters (incl. accented) and drop the rest.
+    first_word = "".join(c for c in title.split()[0] if c.isalpha()) if title else "Unknown"
     return f"{first_word}{year}"
 
 
@@ -46,7 +59,9 @@ def _render_entry(entry_type: str, key: str, fields: dict[str, str]) -> str:
     for k, v in fields.items():
         if v:
             lines.append(f"  {k:<{max_key_len}} = {{{v}}},")
-    if lines[-1].endswith(","):
+    # Only strip a trailing comma if at least one field line was emitted;
+    # otherwise the opening line would be mangled into invalid BibTeX.
+    if len(lines) > 1 and lines[-1].endswith(","):
         lines[-1] = lines[-1][:-1]
     lines.append("}")
     return "\n".join(lines)
@@ -69,8 +84,8 @@ def _from_doi(doi: str, timeout: int = 5) -> str | None:
         bib = r.text.strip()
         if bib.startswith("@"):
             return bib
-    except Exception:
-        pass
+    except requests.exceptions.RequestException as exc:
+        logger.warning("DOI BibTeX fetch failed for %r: %s", doi, exc)
     return None
 
 
@@ -104,6 +119,62 @@ def _article(
         "volume":  volume,
         "number":  number,
         "pages":   _clean(pages),
+        "doi":     _clean(doi),
+        "url":     _clean(url),
+    })
+
+
+def _techreport(
+    *,
+    citation_key: str = "",
+    title: str = "",
+    authors: str = "",
+    institution: str = "",
+    year: str = "",
+    number: str = "",
+    address: str = "",
+    doi: str = "",
+    url: str = "",
+) -> str:
+    if doi:
+        bib = _from_doi(doi)
+        if bib:
+            return bib
+    key = citation_key or _make_key(title, year)
+    return _render_entry("techreport", key, {
+        "author":      _format_authors(authors),
+        "title":       _clean(title),
+        "institution": _clean(institution),
+        "year":        year,
+        "number":      _clean(number),
+        "address":     _clean(address),
+        "doi":         _clean(doi),
+        "url":         _clean(url),
+    })
+
+
+def _phdthesis(
+    *,
+    citation_key: str = "",
+    title: str = "",
+    authors: str = "",
+    school: str = "",
+    year: str = "",
+    address: str = "",
+    doi: str = "",
+    url: str = "",
+) -> str:
+    if doi:
+        bib = _from_doi(doi)
+        if bib:
+            return bib
+    key = citation_key or _make_key(title, year)
+    return _render_entry("phdthesis", key, {
+        "author":  _format_authors(authors),
+        "title":   _clean(title),
+        "school":  _clean(school),
+        "year":    year,
+        "address": _clean(address),
         "doi":     _clean(doi),
         "url":     _clean(url),
     })
@@ -230,7 +301,7 @@ def _extract_year(date_str: str) -> str:
 def _format_access_date(iso_date: str) -> str:
     try:
         dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
-        return dt.strftime("%b. %d, %Y")
+        return f"{_MONTH_ABBR[dt.month]} {dt.day:02d}, {dt.year}"
     except ValueError:
         return iso_date
 
@@ -266,13 +337,28 @@ def zotero_to_bibtex(item: dict) -> str:
         "url":          url,
     }
 
-    if item_type in ("journalArticle", "preprint", "report", "thesis"):
+    if item_type in ("journalArticle", "preprint"):
         return _article(
             **common,
-            journal = str(data.get("publicationTitle") or data.get("reporter") or ""),
+            journal = str(data.get("publicationTitle") or ""),
             volume  = str(data.get("volume") or ""),
             number  = str(data.get("issue") or ""),
             pages   = str(data.get("pages") or ""),
+        )
+
+    if item_type == "report":
+        return _techreport(
+            **common,
+            institution = str(data.get("institution") or data.get("publisher") or ""),
+            number      = str(data.get("reportNumber") or ""),
+            address     = str(data.get("place") or ""),
+        )
+
+    if item_type == "thesis":
+        return _phdthesis(
+            **common,
+            school  = str(data.get("university") or data.get("publisher") or ""),
+            address = str(data.get("place") or ""),
         )
 
     if item_type in ("book", "bookSection"):
