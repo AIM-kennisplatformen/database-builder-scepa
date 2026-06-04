@@ -324,7 +324,6 @@ def main() -> None:
         print(f"\n[{item_key}] {zotero_fields.get('title', 'Unknown')}")
 
         try:
-            # ✅ NEW: Download with configurable file types
             download_success = zot.download_zotero_item(
                 item_id=item_key,
                 download_path=config["pdf_path"],
@@ -341,8 +340,6 @@ def main() -> None:
                 print("  [skip] No acceptable file type downloaded")
                 continue
 
-            # Find downloaded file (may have different extension based on type)
-            # Try all possible extensions for the downloaded file
             possible_extensions = [".pdf", ".epub", ".docx", ".doc", ".txt", ".html"]
             pdf_path = None
             
@@ -384,16 +381,14 @@ def main() -> None:
 
             content = merge_zotero_into_content(contents[0], zotero_fields)
             
-            # Compute document hash for traceability
             meta = content.content.get("metadata", {})
             doc_hash = hashlib.sha256("|".join([
                 meta.get("title") or "",
                 ",".join(meta.get("authors") or []),
                 meta.get("summary") or "",
             ]).encode()).hexdigest()
-            citation = zotero_to_bibtex(zotero_content.content)  # or zotero_content.content once get_content works
+            citation = zotero_to_bibtex(zotero_content.content)
 
-            # Add document_hash to chunk metadata for traceability
             chunks = []
             for c in content.content["chunks"]:
                 c["metadata"] = c.get("metadata") or {}
