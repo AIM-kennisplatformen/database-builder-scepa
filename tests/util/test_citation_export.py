@@ -41,6 +41,45 @@ def _journal_item(**overrides) -> dict:
     return {"data": data}
 
 
+def _report_item(**overrides) -> dict:
+    """Minimal valid report Zotero item."""
+    data = {
+        "key": "REPT1234",
+        "itemType": "report",
+        "title": "National Energy Outlook 2022",
+        "creators": [
+            {"creatorType": "author", "name": "Federal Energy Agency"},
+        ],
+        "institution": "Federal Energy Agency",
+        "reportNumber": "TR-42",
+        "place": "Washington, DC",
+        "date": "2022",
+        "DOI": "",
+        "url": "",
+    }
+    data.update(overrides)
+    return {"data": data}
+
+
+def _thesis_item(**overrides) -> dict:
+    """Minimal valid thesis Zotero item."""
+    data = {
+        "key": "THES1234",
+        "itemType": "thesis",
+        "title": "Deep Learning for Energy Forecasting",
+        "creators": [
+            {"creatorType": "author", "firstName": "Jane", "lastName": "Smith"},
+        ],
+        "university": "MIT",
+        "place": "Cambridge, MA",
+        "date": "2021",
+        "DOI": "",
+        "url": "",
+    }
+    data.update(overrides)
+    return {"data": data}
+
+
 def _book_item(**overrides) -> dict:
     data = {
         "key": "BOOK5678",
@@ -182,6 +221,15 @@ class TestRenderEntry(unittest.TestCase):
         eq_positions = [l.index("=") for l in field_lines]
         self.assertEqual(len(set(eq_positions)), 1)
 
+    def test_all_empty_fields_produces_valid_bibtex(self):
+        result = _render_entry("misc", "Key", {"author": "", "title": ""})
+        self.assertTrue(result.startswith("@misc{Key,"))
+        self.assertTrue(result.endswith("}"))
+        # No field lines emitted — entry collapses to just opening line and closing brace.
+        lines = result.splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[1], "}")
+
 
 class TestExtractYear(unittest.TestCase):
     """Tests for _extract_year()"""
@@ -304,17 +352,53 @@ class TestZoteroToBibtexArticle(unittest.TestCase):
         item = _journal_item(itemType="preprint")
         self.assertTrue(zotero_to_bibtex(item).startswith("@article{"))
 
-    def test_report_dispatches_to_article(self):
-        item = _journal_item(itemType="report")
-        self.assertTrue(zotero_to_bibtex(item).startswith("@article{"))
-
-    def test_thesis_dispatches_to_article(self):
-        item = _journal_item(itemType="thesis")
-        self.assertTrue(zotero_to_bibtex(item).startswith("@article{"))
-
     def test_omits_empty_url_field(self):
         result = zotero_to_bibtex(_journal_item(url=""))
         self.assertNotIn("url     =", result)
+
+
+class TestZoteroToBibtexTechReport(unittest.TestCase):
+    """Tests for report dispatch"""
+
+    def test_produces_techreport_entry(self):
+        result = zotero_to_bibtex(_report_item())
+        self.assertTrue(result.startswith("@techreport{"))
+
+    def test_includes_institution(self):
+        result = zotero_to_bibtex(_report_item())
+        self.assertIn("Federal Energy Agency", result)
+
+    def test_includes_report_number(self):
+        result = zotero_to_bibtex(_report_item())
+        self.assertIn("TR-42", result)
+
+    def test_includes_address(self):
+        result = zotero_to_bibtex(_report_item())
+        self.assertIn("Washington, DC", result)
+
+    def test_does_not_include_journal_field(self):
+        result = zotero_to_bibtex(_report_item())
+        self.assertNotIn("journal", result)
+
+
+class TestZoteroToBibtexPhdThesis(unittest.TestCase):
+    """Tests for thesis dispatch"""
+
+    def test_produces_phdthesis_entry(self):
+        result = zotero_to_bibtex(_thesis_item())
+        self.assertTrue(result.startswith("@phdthesis{"))
+
+    def test_includes_school(self):
+        result = zotero_to_bibtex(_thesis_item())
+        self.assertIn("MIT", result)
+
+    def test_includes_address(self):
+        result = zotero_to_bibtex(_thesis_item())
+        self.assertIn("Cambridge, MA", result)
+
+    def test_does_not_include_journal_field(self):
+        result = zotero_to_bibtex(_thesis_item())
+        self.assertNotIn("journal", result)
 
 
 class TestZoteroToBibtexBook(unittest.TestCase):
