@@ -26,9 +26,14 @@ from database_builder_libs.sources.pdf_source import (
 )
 from database_builder_libs.stores.qdrant.qdrant_store import QdrantDatastore
 from database_builder_libs.stores.typedb.typedb_store import TypeDbDatastore
-from database_builder_libs.utility.chunk.summary_and_sections import SummaryAndSectionsStrategy
-from database_builder_libs.utility.embed_chunk.openai_compatible import OpenAICompatibleChunkEmbedder
+from database_builder_libs.utility.chunk.summary_and_sections import (
+    SummaryAndSectionsStrategy,
+)
+from database_builder_libs.utility.embed_chunk.openai_compatible import (
+    OpenAICompatibleChunkEmbedder,
+)
 
+from .util.citation_export import zotero_to_bibtex
 
 load_dotenv()
 
@@ -292,7 +297,6 @@ def main() -> None:
     failed_documents = []
     skipped_documents = []
 
-    # ✅ NEW: Get file type configuration
     accepted_file_types = get_file_types_for_config(config["accepted_file_types"])
     strict_mode = config["strict_file_types"]
     allow_fallback = not strict_mode
@@ -320,7 +324,6 @@ def main() -> None:
         print(f"\n[{item_key}] {zotero_fields.get('title', 'Unknown')}")
 
         try:
-            # ✅ NEW: Download with configurable file types
             download_success = zot.download_zotero_item(
                 item_id=item_key,
                 download_path=config["pdf_path"],
@@ -337,8 +340,6 @@ def main() -> None:
                 print("  [skip] No acceptable file type downloaded")
                 continue
 
-            # Find downloaded file (may have different extension based on type)
-            # Try all possible extensions for the downloaded file
             possible_extensions = [".pdf", ".epub", ".docx", ".doc", ".txt", ".html"]
             pdf_path = None
             
@@ -380,19 +381,20 @@ def main() -> None:
 
             content = merge_zotero_into_content(contents[0], zotero_fields)
             
-            # Compute document hash for traceability
             meta = content.content.get("metadata", {})
             doc_hash = hashlib.sha256("|".join([
                 meta.get("title") or "",
                 ",".join(meta.get("authors") or []),
                 meta.get("summary") or "",
             ]).encode()).hexdigest()
-            
-            # Add document_hash to chunk metadata for traceability
+            citation = zotero_to_bibtex(zotero_content.content)
+
             chunks = []
             for c in content.content["chunks"]:
                 c["metadata"] = c.get("metadata") or {}
                 c["metadata"]["document_hash"] = doc_hash
+                c["metadata"]["zotero_pdf_name"] = pdf_path.name
+                c["metadata"]["citation"] = citation
                 chunks.append(Chunk(**c))
 
             store_vectors(chunks, qdrant)
