@@ -21,10 +21,17 @@ class DocumentType(str, Enum):
     THESIS = "thesis"
 
 
-class ContentLabel(str, Enum):
-    GENERAL = "general"
+class UserpersonaLabel(str, Enum):
+    """Labels mapping to the 'Userpersona' hyper-relation in the TypeDB schema."""
+
     TARGET_GROUPS = "target_groups"
+    STRATEGIC_OVERVIEW = "strategic_overview"
     BEST_PRACTICES = "best_practices"
+
+
+class KindsOfLiteratureLabel(str, Enum):
+    """Labels mapping to 'discriminatory-factor-kinds-of-literature' in the TypeDB schema."""
+
     SCIENTIFIC_LITERATURE = "scientific_literature"
     GREY_LITERATURE = "grey_literature"
     PROJECT_REPORTS = "project_reports"
@@ -42,7 +49,7 @@ class DocumentMetadata(BaseModel):
     title: str = Field(..., min_length=1)
     authors: list[str] = Field(..., min_length=1)
     document_type: DocumentType
-    publishing_date: date
+    publishing_date: date | None = Field(None, description="Required for scientific literature, please fill out if known for other types.")
     publishing_organization: str | None = None
     publication_medium: str | None = None
     project: str | None = None
@@ -50,7 +57,8 @@ class DocumentMetadata(BaseModel):
     doi: str | None = None
     url: str | None = None
     language: str | None = None
-    content_labels: list[ContentLabel] = Field(..., min_length=1)
+    userpersona_labels: list[UserpersonaLabel] = Field(default_factory=list, description="Target groups, strategic overview, and/or best practices.")
+    kinds_of_literature_labels: list[KindsOfLiteratureLabel] = Field(default_factory=list, description="Scientific literature, grey literature, project reports, and/or policy documents.")
 
 
 class UploadStatus(str, Enum):

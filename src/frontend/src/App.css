@@ -12,6 +12,13 @@ body {
 h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
 .subtitle { color: #888; margin-bottom: 1rem; }
 
+/* Intro box */
+.intro-box {
+  background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.88rem;
+  line-height: 1.6; color: #1a3e5c;
+}
+
 /* Tabs */
 .tabs { display: flex; gap: 0; border-bottom: 2px solid #ddd; margin-bottom: 1rem; }
 .tab {
@@ -55,6 +62,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .field textarea { resize: vertical; }
 
+/* Field hints */
+.field-hint {
+  display: block; font-size: 0.75rem; color: #888;
+  margin-bottom: 0.3rem; font-weight: normal;
+}
+
 /* Checkbox grid */
 .check-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .check-grid label { display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; }
@@ -74,17 +87,60 @@ details summary { cursor: pointer; font-size: 0.85rem; color: #666; }
 .result-box ul { list-style: none; padding: 0; margin-top: 0.5rem; }
 .result-box li { padding: 0.2rem 0; font-size: 0.85rem; }
 
-/* Queue */
+/* Queue cards accordion style */
 .queue-card {
   background: #fff; border: 1px solid #ddd; border-radius: 6px;
-  padding: 0.75rem 1rem; margin-bottom: 0.5rem;
-  display: flex; align-items: flex-start; gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+.queue-card:hover { border-color: #aaa; }
 .queue-card-selected { border-color: #0066cc; background: #f0f7ff; }
+.queue-card-expanded { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
+
+.queue-card-row {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
 .queue-card-body { flex: 1; }
 .queue-card-body h4 { font-size: 0.9rem; margin-bottom: 0.2rem; }
 .queue-meta { font-size: 0.8rem; color: #666; }
 .queue-actions { display: flex; gap: 0.3rem; margin-top: 0.4rem; }
+
+/* Expand icon */
+.queue-expand-icon {
+  font-size: 1rem; color: #888; transition: transform 0.2s;
+  flex-shrink: 0; margin-top: 0.2rem;
+}
+.queue-expand-icon-open { transform: rotate(180deg); }
+
+/* Queue status badges */
 .queue-status { font-size: 0.75rem; font-weight: 600; }
+.queue-status-pending { color: #e67e22; }
+.queue-status-ingesting { color: #3498db; }
+.queue-status-ingested { color: #27ae60; }
+.queue-status-failed { color: #e74c3c; }
+
+/* Expanded detail section inside the card */
+.queue-card-detail {
+  border-top: 1px solid #eee;
+  padding: 0.75rem 1rem;
+  background: #fafbfc;
+  border-radius: 0 0 6px 6px;
+}
+
+/* Detail list (definition list) */
+.detail-list { font-size: 0.82rem; }
+.detail-list dt {
+  font-weight: 600; color: #555; margin-top: 0.6rem;
+}
+.detail-list dd {
+  margin: 0.1rem 0 0 0; color: #333; word-break: break-word;
+}
+.detail-list dd a { color: #0066cc; }
+
+.detail-hash {
+  margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid #eee;
+  color: #999; word-break: break-all;
+}
 
 .empty { text-align: center; color: #999; padding: 2rem; }

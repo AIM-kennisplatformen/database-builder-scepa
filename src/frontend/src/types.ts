@@ -11,10 +11,15 @@ export const DOCUMENT_TYPES = [
   { value: "thesis", label: "Thesis" },
 ] as const;
 
-export const CONTENT_LABELS = [
-  { value: "general", label: "General" },
+/** Labels mapping to the 'Userpersona' hyper-relation in the TypeDB schema. */
+export const USERPERSONA_LABELS = [
   { value: "target_groups", label: "Target Groups" },
+  { value: "strategic_overview", label: "Strategic Overview" },
   { value: "best_practices", label: "Best Practices" },
+] as const;
+
+/** Labels mapping to 'discriminatory-factor-kinds-of-literature' in the TypeDB schema. */
+export const KINDS_OF_LITERATURE_LABELS = [
   { value: "scientific_literature", label: "Scientific Literature" },
   { value: "grey_literature", label: "Grey Literature" },
   { value: "project_reports", label: "Project Reports" },
@@ -22,14 +27,23 @@ export const CONTENT_LABELS = [
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number]["value"];
-export type ContentLabel = (typeof CONTENT_LABELS)[number]["value"];
+export type UserpersonaLabel = (typeof USERPERSONA_LABELS)[number]["value"];
+export type KindsOfLiteratureLabel = (typeof KINDS_OF_LITERATURE_LABELS)[number]["value"];
+
+/** Document types that require a publishing date. */
+export const SCIENTIFIC_DOC_TYPES: DocumentType[] = [
+  "scientificjournalarticle",
+  "scientificstudiereport",
+  "thesis",
+];
 
 export interface DocumentMetadata {
   title: string;
   authors: string[];
   document_type: DocumentType;
   publishing_date: string;
-  content_labels: ContentLabel[];
+  userpersona_labels: UserpersonaLabel[];
+  kinds_of_literature_labels: KindsOfLiteratureLabel[];
   publishing_organization?: string;
   publication_medium?: string;
   project?: string;

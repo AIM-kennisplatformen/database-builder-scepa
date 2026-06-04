@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import DocumentCard from "./DocumentCard";
 import QueueView from "./QueueView";
 import type { DocumentEntry, BulkUploadResponse, DocumentMetadata } from "./types";
+import { SCIENTIFIC_DOC_TYPES } from "./types";
 import "./App.css";
 
 const API_BASE = "/api/v1";
@@ -17,7 +18,8 @@ function createEntry(file: File): DocumentEntry {
       authors: [],
       document_type: "book",
       publishing_date: "",
-      content_labels: [],
+      userpersona_labels: [],
+      kinds_of_literature_labels: [],
     },
   };
 }
@@ -25,7 +27,10 @@ function createEntry(file: File): DocumentEntry {
 /** Remove empty optional fields before sending to the API. */
 function stripEmpty(meta: DocumentMetadata): Record<string, unknown> {
   return Object.fromEntries(
-    Object.entries(meta).filter(([, v]) => v !== undefined && v !== "")
+    Object.entries(meta).filter(([, v]) => {
+      if (Array.isArray(v)) return true; // always send arrays (even empty)
+      return v !== undefined && v !== "";
+    })
   );
 }
 
@@ -55,7 +60,8 @@ export default function App() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  // All required fields must be filled before upload is allowed
+  // All required fields must be filled before upload is allowed.
+  // Publishing date is only required for scientific document types.
   const canSubmit =
     !uploading &&
     entries.length > 0 &&
@@ -64,8 +70,8 @@ export default function App() {
         e.file !== null &&
         e.metadata.title.trim() !== "" &&
         e.metadata.authors.length > 0 &&
-        e.metadata.publishing_date !== "" &&
-        e.metadata.content_labels.length > 0
+        (!SCIENTIFIC_DOC_TYPES.includes(e.metadata.document_type) ||
+          e.metadata.publishing_date !== "")
     );
 
   const handleSubmit = async () => {
@@ -114,6 +120,17 @@ export default function App() {
 
       {tab === "upload" && (
         <>
+          {/* Introductory text explaining the value of metadata */}
+          <div className="intro-box">
+            <p>
+              <strong>Thank you for contributing to the SCEPA knowledge platform!</strong> By
+              carefully filling in the metadata for each document you upload, you help us build a
+              high-quality expert system. Your expert judgement on document type, target groups, and
+              literature category directly improves how knowledge is organised and retrieved for all
+              users.
+            </p>
+          </div>
+
           {/* File picker — select multiple files at once */}
           <div className="file-picker">
             <p>Select one or more files to create upload forms</p>

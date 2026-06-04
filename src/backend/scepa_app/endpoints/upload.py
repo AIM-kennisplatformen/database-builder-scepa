@@ -126,12 +126,30 @@ async def list_queue() -> list[QueueEntry]:
     return entries
 
 
-@router.delete("/queue/{document_hash}", status_code=status.HTTP_204_NO_CONTENT, summary="Remove from queue")
-async def delete_queue_entry(document_hash: str) -> None:
-    """Remove a document from the queue and delete its file from disk."""
+@router.patch("/queue/{document_hash}", response_model=QueueEntry, summary="Update document metadata")
+async def update_queue_entry(document_hash: str, metadata: DocumentMetadata) -> QueueEntry:
+    """Update the metadata of a queued document. Blocked once the document has been ingested."""
     registry = _load_registry()
     if document_hash not in registry:
         raise HTTPException(status_code=404, detail="Not found.")
+    if registry[document_hash].get("status") == QueueStatus.INGESTED.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot edit metadata of an ingested document.")
+    registry[document_hash]["metadata"] = json.loads(metadata.model_dump_json())
+    _save_registry(registry)
+    return QueueEntry.model_validate(registry[document_hash])
+
+
+@router.delete("/queue/{document_hash}", status_code=status.HTTP_204_NO_CONTENT, summary="Remove from queue")
+async def delete_queue_entry(document_hash: str) -> None:
+    """Remove a document from the queue and delete its file from disk.
+
+    Ingested documents cannot be deleted removal from databases is a separate operation.
+    """
+    registry = _load_registry()
+    if document_hash not in registry:
+        raise HTTPException(status_code=404, detail="Not found.")
+    if registry[document_hash].get("status") == QueueStatus.INGESTED.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot delete an ingested document. Removal from databases is not yet supported.")
     entry = registry.pop(document_hash)
     _save_registry(registry)
     file_path = UPLOAD_DIR / f"{document_hash}_{entry['filename']}"
