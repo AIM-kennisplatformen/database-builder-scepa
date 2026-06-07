@@ -19,6 +19,7 @@ dependencies = [
   "qdrant-client",
   "docling>=2.73.0,<3",
   "database-builder-libs @ git+https://github.com/AIM-kennisplatformen/database-builder-libs.git@ab164c9bf2ed9992b9350126a725a749b22bd716",
+  "typedb-driver==3.8.1",
   "span-marker>=1.7.0,<2",
   "openai>=2.24.0,<3",
   "pypdf>=6.7.3,<7",
@@ -84,7 +85,7 @@ format = "ruff format"
 typecheck = "ty check ."
 test = "pytest -s"
 app = "PYTHONPATH=src/backend python -m scepa_app.main"
-frontend_build = "cd src/frontend && npm install && npm run build"
+frontend_build = "cd src/frontend && npm ci && npm run build"
 database_builder = "PYTHONPATH=src/backend uvicorn scepa_app.app:app --reload --host 0.0.0.0 --port 8000"
 docs = "mkdocs serve -a 0.0.0.0:10001"
 docs-build = "mkdocs build"

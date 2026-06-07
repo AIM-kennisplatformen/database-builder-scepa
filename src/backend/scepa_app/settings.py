@@ -49,7 +49,7 @@ def _required_env(*names: str) -> str:
 
 
 def load_settings() -> Settings:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
+    env_path = Path(__file__).resolve().parents[3] / ".env"
     load_dotenv(dotenv_path=env_path if env_path.exists() else None)
 
     max_documents = os.getenv("MAX_DOCUMENTS")

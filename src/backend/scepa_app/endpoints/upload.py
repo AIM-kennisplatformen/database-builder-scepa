@@ -59,8 +59,8 @@ async def _process_single_file(file: UploadFile, metadata: DocumentMetadata, reg
     # Hash file content for deduplication
     file_hash = hashlib.sha256(content).hexdigest()
 
-    # Skip if already uploaded
-    if file_hash in registry:
+    # Skip if already uploaded and file is present on disk
+    if file_hash in registry and (UPLOAD_DIR / f"{file_hash}_{filename}").exists():
         return DocumentUploadResult(filename=filename, status=UploadStatus.DUPLICATE, document_hash=file_hash, message="Document already exists.")
 
     # Save file as {hash}_{filename} and register in queue
