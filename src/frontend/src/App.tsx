@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import DocumentCard from "./DocumentCard";
 import QueueView from "./QueueView";
 import type { DocumentEntry, BulkUploadResponse, DocumentMetadata } from "./types";
-import { SCIENTIFIC_DOC_TYPES } from "./types";
 import "./App.css";
 
 const API_BASE = "/api/v1";
@@ -18,6 +17,7 @@ function createEntry(file: File): DocumentEntry {
       authors: [],
       document_type: "book",
       publishing_date: "",
+      publishing_organization: "",
       userpersona_labels: [],
       kinds_of_literature_labels: [],
     },
@@ -60,8 +60,8 @@ export default function App() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  // All required fields must be filled before upload is allowed.
-  // Publishing date is only required for scientific document types.
+  // All obligatory fields must be filled before upload is allowed:
+  // title, authors, document type, publishing date, and organization.
   const canSubmit =
     !uploading &&
     entries.length > 0 &&
@@ -70,8 +70,8 @@ export default function App() {
         e.file !== null &&
         e.metadata.title.trim() !== "" &&
         e.metadata.authors.length > 0 &&
-        (!SCIENTIFIC_DOC_TYPES.includes(e.metadata.document_type) ||
-          e.metadata.publishing_date !== "")
+        e.metadata.publishing_date !== "" &&
+        e.metadata.publishing_organization.trim() !== ""
     );
 
   const handleSubmit = async () => {

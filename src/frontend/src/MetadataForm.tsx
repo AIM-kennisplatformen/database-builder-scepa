@@ -1,5 +1,5 @@
 import type { DocumentType, UserpersonaLabel, KindsOfLiteratureLabel, DocumentMetadata } from "./types";
-import { DOCUMENT_TYPES, USERPERSONA_LABELS, KINDS_OF_LITERATURE_LABELS, SCIENTIFIC_DOC_TYPES } from "./types";
+import { DOCUMENT_TYPES, USERPERSONA_LABELS, KINDS_OF_LITERATURE_LABELS } from "./types";
 
 interface Props {
   value: DocumentMetadata;
@@ -28,8 +28,6 @@ export default function MetadataForm({ value, onChange }: Props) {
         : [...current, label],
     });
   };
-
-  const isScientific = SCIENTIFIC_DOC_TYPES.includes(value.document_type);
 
   return (
     <>
@@ -69,10 +67,8 @@ export default function MetadataForm({ value, onChange }: Props) {
       </div>
 
       <div className="field">
-        <label>Publishing date {isScientific ? "*" : ""}</label>
-        <span className="field-hint">
-          {isScientific ? "Required for scientific literature." : "Please fill out if known."}
-        </span>
+        <label>Publishing date *</label>
+        <span className="field-hint">The date the document was published.</span>
         <input
           type="date"
           value={value.publishing_date}
@@ -117,13 +113,13 @@ export default function MetadataForm({ value, onChange }: Props) {
       </div>
 
       <div className="field">
-        <label>Publishing organisation</label>
+        <label>Publishing organisation *</label>
         <span className="field-hint">The organisation that published or commissioned this document.</span>
         <input
           type="text"
           placeholder="Organisation name"
-          value={value.publishing_organization ?? ""}
-          onChange={(e) => onChange({ publishing_organization: e.target.value || undefined })}
+          value={value.publishing_organization}
+          onChange={(e) => onChange({ publishing_organization: e.target.value })}
         />
       </div>
 

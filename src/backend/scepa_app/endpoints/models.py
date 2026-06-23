@@ -46,11 +46,13 @@ class QueueStatus(str, Enum):
 
 
 class DocumentMetadata(BaseModel):
+    # Obligatory fields — all five must be provided for every document.
     title: str = Field(..., min_length=1)
     authors: list[str] = Field(..., min_length=1)
     document_type: DocumentType
-    publishing_date: date | None = Field(None, description="Required for scientific literature, please fill out if known for other types.")
-    publishing_organization: str | None = None
+    publishing_date: date = Field(..., description="Date the document was published.")
+    publishing_organization: str = Field(..., min_length=1, description="Organization that published or commissioned the document.")
+    # Optional fields.
     publication_medium: str | None = None
     project: str | None = None
     isbn: str | None = None

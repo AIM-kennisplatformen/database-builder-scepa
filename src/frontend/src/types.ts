@@ -38,13 +38,14 @@ export const SCIENTIFIC_DOC_TYPES: DocumentType[] = [
 ];
 
 export interface DocumentMetadata {
+  // Obligatory fields — all five must be filled before upload.
   title: string;
   authors: string[];
   document_type: DocumentType;
   publishing_date: string;
+  publishing_organization: string;
   userpersona_labels: UserpersonaLabel[];
   kinds_of_literature_labels: KindsOfLiteratureLabel[];
-  publishing_organization?: string;
   publication_medium?: string;
   project?: string;
   isbn?: string;

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { QueueEntry, IngestResponse, DocumentMetadata } from "./types";
-import { SCIENTIFIC_DOC_TYPES } from "./types";
 import MetadataForm from "./MetadataForm";
 
 const API_BASE = "/api/v1";
@@ -145,11 +144,11 @@ export default function QueueView() {
 
   const canSave = (): boolean => {
     if (!editDraft) return false;
-    const isScientific = SCIENTIFIC_DOC_TYPES.includes(editDraft.document_type);
     return (
       editDraft.title.trim() !== "" &&
       editDraft.authors.length > 0 &&
-      (!isScientific || editDraft.publishing_date !== "")
+      editDraft.publishing_date !== "" &&
+      editDraft.publishing_organization.trim() !== ""
     );
   };
 
