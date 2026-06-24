@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from dotenv import load_dotenv
 
+from .db import connect_qdrant, connect_typedb
 from .graph.graph_from_metadata import MetadataNodeExporter
 from .util.metadata_util import (
     extract_zotero_metadata,
@@ -168,32 +169,6 @@ def build_zotero_source(config: dict) -> ZoteroSource:
         }
     )
     return src
-
-
-def connect_qdrant(settings: Settings) -> QdrantDatastore:
-    qdrant = QdrantDatastore()
-    qdrant.connect(
-        {
-            "url": settings.qdrant_url,
-            "collection": settings.qdrant_collection,
-            "vector_size": settings.qdrant_vector_size,
-        }
-    )
-    return qdrant
-
-
-def connect_typedb(settings: Settings) -> TypeDbDatastore:
-    typedb = TypeDbDatastore()
-    typedb.connect(
-        {
-            "uri": settings.typedb_uri,
-            "username": settings.typedb_username,
-            "password": settings.typedb_password,
-            "database": settings.typedb_database,
-            "schema_path": settings.typedb_schema,
-        }
-    )
-    return typedb
 
 
 def build_qdrant(config: dict) -> QdrantDatastore:

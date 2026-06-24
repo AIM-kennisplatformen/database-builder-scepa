@@ -74,6 +74,12 @@ export default function App() {
         e.metadata.publishing_organization.trim() !== ""
     );
 
+  // Split the upload results so duplicates and failures can be shown as a clear
+  // error callout, separate from the successful uploads.
+  const okResults = result?.results.filter((r) => r.status === "success") ?? [];
+  const duplicateResults = result?.results.filter((r) => r.status === "duplicate") ?? [];
+  const failedResults = result?.results.filter((r) => r.status === "failed") ?? [];
+
   const handleSubmit = async () => {
     setUploading(true);
     setError(null);
@@ -173,14 +179,32 @@ export default function App() {
             </div>
           )}
 
-          {result && (
-            <div className="result-box result-ok">
-              <strong>Done!</strong> {result.successful} uploaded, {result.duplicates} duplicates, {result.failed} failed
+          {/* Clear error callout for documents that already exist or failed */}
+          {result && (duplicateResults.length > 0 || failedResults.length > 0) && (
+            <div className="result-box result-error">
+              <strong>Some documents were not uploaded:</strong>
               <ul>
-                {result.results.map((r, i) => (
-                  <li key={i}>
-                    [{r.status}] {r.filename} — {r.message}
+                {duplicateResults.map((r, i) => (
+                  <li key={`dup-${i}`}>
+                    ⚠️ <strong>{r.filename}</strong> {r.message}
                   </li>
+                ))}
+                {failedResults.map((r, i) => (
+                  <li key={`fail-${i}`}>
+                    ❌ <strong>{r.filename}</strong> {r.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Success summary */}
+          {result && okResults.length > 0 && (
+            <div className="result-box result-ok">
+              <strong>Done!</strong> {okResults.length} document{okResults.length !== 1 ? "s" : ""} uploaded and queued.
+              <ul>
+                {okResults.map((r, i) => (
+                  <li key={`ok-${i}`}>✓ {r.filename}</li>
                 ))}
               </ul>
               <button style={{ marginTop: "0.5rem" }} onClick={() => setTab("queue")}>
