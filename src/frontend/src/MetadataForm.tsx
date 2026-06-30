@@ -1,15 +1,37 @@
-import type { DocumentType, UserpersonaLabel, KindsOfLiteratureLabel, DocumentMetadata } from "./types";
+import { useEffect, useState } from "react";
+import type { DocumentType, UserpersonaLabel, KindsOfLiteratureLabel, DocumentMetadata, ExistingInstances } from "./types";
 import { DOCUMENT_TYPES, USERPERSONA_LABELS, KINDS_OF_LITERATURE_LABELS } from "./types";
+import AutocompleteInput from "./AutocompleteInput";
+
+/** Split the raw authors text into a trimmed, non-empty list of names. */
+function parseAuthors(raw: string): string[] {
+  return raw.split(",").map((a) => a.trim()).filter(Boolean);
+}
 
 interface Props {
   value: DocumentMetadata;
   onChange: (patch: Partial<DocumentMetadata>) => void;
+  instances: ExistingInstances;
+  /** Unique suffix so each card's <datalist> ids stay distinct. */
+  idPrefix: string;
 }
 
-export default function MetadataForm({ value, onChange }: Props) {
+export default function MetadataForm({ value, onChange, instances, idPrefix }: Props) {
+  const [authorsText, setAuthorsText] = useState(value.authors.join(", "));
+  useEffect(() => {
+    if (parseAuthors(authorsText).join("\n") !== value.authors.join("\n")) {
+      setAuthorsText(value.authors.join(", "));
+    }
+  }, [value.authors]);
+
   const handleAuthorsChange = (raw: string) => {
-    onChange({ authors: raw.split(",").map((a) => a.trim()).filter(Boolean) });
+    setAuthorsText(raw);
+    onChange({ authors: parseAuthors(raw) });
   };
+
+  const lastComma = authorsText.lastIndexOf(",");
+  const authorPrefix = lastComma >= 0 ? `${authorsText.slice(0, lastComma + 1)} ` : "";
+  const authorSuggestions = instances.authors.map((name) => `${authorPrefix}${name}`);
 
   const handleUserpersonaToggle = (label: UserpersonaLabel) => {
     const current = value.userpersona_labels;
@@ -44,12 +66,13 @@ export default function MetadataForm({ value, onChange }: Props) {
 
       <div className="field">
         <label>Authors * (comma-separated)</label>
-        <span className="field-hint">List all authors separated by commas.</span>
-        <input
-          type="text"
+        <span className="field-hint">List all authors separated by commas. Pick existing authors from the suggestions to avoid duplicates.</span>
+        <AutocompleteInput
+          value={authorsText}
+          onChange={handleAuthorsChange}
+          suggestions={authorSuggestions}
+          listId={`${idPrefix}-authors`}
           placeholder="John Doe, Jane Smith"
-          value={value.authors.join(", ")}
-          onChange={(e) => handleAuthorsChange(e.target.value)}
         />
       </div>
 
@@ -114,12 +137,13 @@ export default function MetadataForm({ value, onChange }: Props) {
 
       <div className="field">
         <label>Publishing organisation *</label>
-        <span className="field-hint">The organisation that published or commissioned this document.</span>
-        <input
-          type="text"
-          placeholder="Organisation name"
+        <span className="field-hint">The organisation that published or commissioned this document. Pick an existing one from the suggestions to avoid duplicates.</span>
+        <AutocompleteInput
           value={value.publishing_organization}
-          onChange={(e) => onChange({ publishing_organization: e.target.value })}
+          onChange={(v) => onChange({ publishing_organization: v })}
+          suggestions={instances.organizations}
+          listId={`${idPrefix}-organization`}
+          placeholder="Organisation name"
         />
       </div>
 

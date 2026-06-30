@@ -63,6 +63,17 @@ class DocumentMetadata(BaseModel):
     kinds_of_literature_labels: list[KindsOfLiteratureLabel] = Field(default_factory=list, description="Scientific literature, grey literature, project reports, and/or policy documents.")
 
 
+class ExistingInstances(BaseModel):
+    """Distinct attribute values already stored in TypeDB.
+
+    Offered to the upload form so users can reuse an existing instance instead
+    of typing a slightly different spelling and creating a duplicate.
+    """
+
+    organizations: list[str] = Field(default_factory=list, description="Names of publishing institutions already in TypeDB.")
+    authors: list[str] = Field(default_factory=list, description="Names of persons already in TypeDB.")
+
+
 class UploadStatus(str, Enum):
     SUCCESS = "success"
     DUPLICATE = "duplicate"

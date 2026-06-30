@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DocumentCard from "./DocumentCard";
 import QueueView from "./QueueView";
-import type { DocumentEntry, BulkUploadResponse, DocumentMetadata } from "./types";
+import type { DocumentEntry, BulkUploadResponse, DocumentMetadata, ExistingInstances } from "./types";
 import "./App.css";
 
 const API_BASE = "/api/v1";
@@ -40,7 +40,17 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<BulkUploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [instances, setInstances] = useState<ExistingInstances>({ organizations: [], authors: [] });
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Load existing TypeDB instances once so the metadata forms can suggest them
+  // for reuse. Best-effort: on failure the forms fall back to plain free-text.
+  useEffect(() => {
+    fetch(`${API_BASE}/instances`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ExistingInstances | null) => data && setInstances(data))
+      .catch(() => {});
+  }, []);
 
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -160,6 +170,7 @@ export default function App() {
               index={i}
               onChange={updateEntry}
               onDelete={deleteEntry}
+              instances={instances}
             />
           ))}
 

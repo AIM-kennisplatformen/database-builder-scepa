@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { QueueEntry, IngestResponse, DocumentMetadata } from "./types";
+import type { QueueEntry, IngestResponse, DocumentMetadata, ExistingInstances } from "./types";
 import MetadataForm from "./MetadataForm";
 
 const API_BASE = "/api/v1";
@@ -23,6 +23,16 @@ export default function QueueView() {
   const [editDraft, setEditDraft] = useState<DocumentMetadata | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [instances, setInstances] = useState<ExistingInstances>({ organizations: [], authors: [] });
+
+  // Load existing TypeDB instances once so the edit form can suggest them for
+  // reuse. Best-effort: on failure the form falls back to plain free-text.
+  useEffect(() => {
+    fetch(`${API_BASE}/instances`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ExistingInstances | null) => data && setInstances(data))
+      .catch(() => {});
+  }, []);
 
   const fetchQueue = async () => {
     setLoading(true);
@@ -226,6 +236,8 @@ export default function QueueView() {
                     <MetadataForm
                       value={editDraft}
                       onChange={(patch) => setEditDraft((prev) => prev ? { ...prev, ...patch } : prev)}
+                      instances={instances}
+                      idPrefix={entry.document_hash}
                     />
                     {saveError && (
                       <div className="result-box result-error" style={{ marginTop: "0.5rem" }}>

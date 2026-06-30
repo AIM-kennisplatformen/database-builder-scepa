@@ -54,6 +54,12 @@ export interface DocumentMetadata {
   language?: string;
 }
 
+/** Existing attribute values from TypeDB, offered as suggestions in the form. */
+export interface ExistingInstances {
+  organizations: string[];
+  authors: string[];
+}
+
 export interface DocumentEntry {
   id: string;
   file: File | null;

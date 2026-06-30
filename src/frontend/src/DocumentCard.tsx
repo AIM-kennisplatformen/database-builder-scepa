@@ -1,4 +1,4 @@
-import type { DocumentEntry } from "./types";
+import type { DocumentEntry, ExistingInstances } from "./types";
 import MetadataForm from "./MetadataForm";
 
 interface Props {
@@ -6,10 +6,11 @@ interface Props {
   index: number;
   onChange: (id: string, entry: DocumentEntry) => void;
   onDelete: (id: string) => void;
+  instances: ExistingInstances;
 }
 
 // Metadata form for a single uploaded file.
-export default function DocumentCard({ entry, index, onChange, onDelete }: Props) {
+export default function DocumentCard({ entry, index, onChange, onDelete, instances }: Props) {
   const update = (patch: Partial<DocumentEntry["metadata"]>) => {
     onChange(entry.id, { ...entry, metadata: { ...entry.metadata, ...patch } });
   };
@@ -24,7 +25,7 @@ export default function DocumentCard({ entry, index, onChange, onDelete }: Props
           Remove
         </button>
       </div>
-      <MetadataForm value={entry.metadata} onChange={update} />
+      <MetadataForm value={entry.metadata} onChange={update} instances={instances} idPrefix={entry.id} />
     </div>
   );
 }
